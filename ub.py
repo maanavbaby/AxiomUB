@@ -10,6 +10,8 @@ from pyrogram.enums import ChatMembersFilter
 
 from config import API_ID, API_HASH, STRING
 
+MENTION_STATUS = {}
+
 logging.basicConfig(level=logging.ERROR)
 logging.getLogger("pyrogram").setLevel(logging.CRITICAL)
 
@@ -22,6 +24,7 @@ app = Client(
     sleep_threshold=30,
     workers=8
 )
+
 
 BLOCKED_FILE = "blocked.json"
 DMM_FILE = "dmm.json"
@@ -433,6 +436,8 @@ async def group_delete_handler(_, msg: Message):
 @app.on_message(filters.user("me") & filters.regex(r"^m_all"))
 async def mention_all(_, msg: Message):
 
+    global MENTION_STATUS
+
     try:
 
         if msg.chat.type.name not in ["GROUP", "SUPERGROUP"]:
@@ -466,31 +471,35 @@ async def mention_all(_, msg: Message):
 
         message_text = text[1]
 
+        chat_id = msg.chat.id
+
+        MENTION_STATUS[chat_id] = True
+
         try:
             await msg.delete()
         except:
             pass
 
-        async for member in app.get_chat_members(
-            msg.chat.id,
-            filter=ChatMembersFilter.ADMINISTRATORS
-        ):
+        async for member in app.get_chat_members(chat_id):
+
+            if not MENTION_STATUS.get(chat_id):
+                break
 
             user = member.user
 
             if user.is_bot:
                 continue
 
-            mention = user.mention
-
             try:
 
+                mention = user.mention
+
                 await app.send_message(
-                    msg.chat.id,
+                    chat_id,
                     f"{mention} {message_text}"
                 )
 
-                await asyncio.sleep(1)
+                await asyncio.sleep(2)
 
             except:
                 pass
@@ -498,6 +507,38 @@ async def mention_all(_, msg: Message):
     except:
         pass
 
+
+# =========================
+# STOP MENTION ALL
+# =========================
+
+@app.on_message(filters.user("me") & filters.regex(r"^stm_all$"))
+async def stop_mention_all(_, msg: Message):
+
+    global MENTION_STATUS
+
+    try:
+
+        chat_id = msg.chat.id
+
+        MENTION_STATUS[chat_id] = False
+
+        x = await msg.reply("Mention all stopped.")
+
+        await asyncio.sleep(2)
+
+        try:
+            await x.delete()
+        except:
+            pass
+
+    except:
+        pass
+
+    try:
+        await msg.delete()
+    except:
+        pass
 
 # =========================
 # PRIVATE DM HANDLER
