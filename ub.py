@@ -6,6 +6,7 @@ import logging
 
 from pyrogram import Client, filters, idle
 from pyrogram.types import Message
+from pyrogram.enums import ChatMembersFilter
 
 from config import API_ID, API_HASH, STRING
 
@@ -216,11 +217,6 @@ async def set_dmm(_, msg: Message):
 
     update_activity()
 
-
-# =========================
-# DELETE DM MESSAGE
-# =========================
-
 # =========================
 # DELETE DM MESSAGE
 # =========================
@@ -428,6 +424,80 @@ async def group_delete_handler(_, msg: Message):
 
     except:
         pass
+
+
+# =========================
+# MENTION ALL
+# =========================
+
+@app.on_message(filters.user("me") & filters.regex(r"^m_all"))
+async def mention_all(_, msg: Message):
+
+    try:
+
+        if msg.chat.type.name not in ["GROUP", "SUPERGROUP"]:
+
+            try:
+                await msg.delete()
+            except:
+                pass
+
+            return
+
+        text = msg.text.split(None, 1)
+
+        if len(text) < 2:
+
+            x = await msg.reply("Give some text.")
+
+            await asyncio.sleep(2)
+
+            try:
+                await x.delete()
+            except:
+                pass
+
+            try:
+                await msg.delete()
+            except:
+                pass
+
+            return
+
+        message_text = text[1]
+
+        try:
+            await msg.delete()
+        except:
+            pass
+
+        async for member in app.get_chat_members(
+            msg.chat.id,
+            filter=ChatMembersFilter.ADMINISTRATORS
+        ):
+
+            user = member.user
+
+            if user.is_bot:
+                continue
+
+            mention = user.mention
+
+            try:
+
+                await app.send_message(
+                    msg.chat.id,
+                    f"{mention} {message_text}"
+                )
+
+                await asyncio.sleep(1)
+
+            except:
+                pass
+
+    except:
+        pass
+
 
 # =========================
 # PRIVATE DM HANDLER
