@@ -10,12 +10,16 @@ from pyrogram.types import Message
 from config import API_ID, API_HASH, STRING
 
 logging.basicConfig(level=logging.ERROR)
+logging.getLogger("pyrogram").setLevel(logging.CRITICAL)
 
 app = Client(
     "userbot",
     api_id=API_ID,
     api_hash=API_HASH,
-    session_string=STRING
+    session_string=STRING,
+    no_updates=False,
+    sleep_threshold=30,
+    workers=8
 )
 
 BLOCKED_FILE = "blocked.json"
@@ -284,4 +288,7 @@ async def dm_handler(_, msg: Message):
 print("Userbot Started...")
 update_activity()
 
-app.run()
+try:
+    app.run()
+except Exception as e:
+    print(e)
