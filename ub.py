@@ -75,7 +75,7 @@ def get_last_seen():
 # PING
 # =========================
 
-@app.on_message(filters.user("me") & filters.regex(r"^ping$"))
+@app.on_message(filters.user("me") & filters.regex(r"^!ping$"))
 async def ping(_, msg: Message):
 
     start = time.time()
@@ -107,7 +107,7 @@ async def ping(_, msg: Message):
 # DM DISABLE
 # =========================
 
-@app.on_message(filters.user("me") & filters.regex(r"^d_d$"))
+@app.on_message(filters.user("me") & filters.regex(r"^!d_d$"))
 async def dm_disable(_, msg: Message):
 
     try:
@@ -136,7 +136,7 @@ async def dm_disable(_, msg: Message):
 # DM ALLOW
 # =========================
 
-@app.on_message(filters.user("me") & filters.regex(r"^d_a$"))
+@app.on_message(filters.user("me") & filters.regex(r"^!d_a$"))
 async def dm_allow(_, msg: Message):
 
     try:
@@ -169,7 +169,7 @@ async def dm_allow(_, msg: Message):
 # SET DM MESSAGE
 # =========================
 
-@app.on_message(filters.user("me") & filters.regex(r"^set_dmm"))
+@app.on_message(filters.user("me") & filters.regex(r"^!set_dmm"))
 async def set_dmm(_, msg: Message):
 
     try:
@@ -224,7 +224,7 @@ async def set_dmm(_, msg: Message):
 # DELETE DM MESSAGE
 # =========================
 
-@app.on_message(filters.user("me") & filters.regex(r"^del_dmm$"))
+@app.on_message(filters.user("me") & filters.regex(r"^!del_dmm$"))
 async def del_dmm(_, msg: Message):
 
     try:
@@ -269,7 +269,7 @@ async def activity(_, msg):
 # GROUP AUTO DELETE ENABLE
 # =========================
 
-@app.on_message(filters.user("me") & filters.regex(r"^del_m$"))
+@app.on_message(filters.user("me") & filters.regex(r"^!del_m$"))
 async def enable_group_delete(_, msg: Message):
 
     try:
@@ -336,7 +336,7 @@ async def enable_group_delete(_, msg: Message):
 # GROUP AUTO DELETE DISABLE
 # =========================
 
-@app.on_message(filters.user("me") & filters.regex(r"^stdel_m$"))
+@app.on_message(filters.user("me") & filters.regex(r"^!stdel_m$"))
 async def disable_group_delete(_, msg: Message):
 
     try:
@@ -433,7 +433,7 @@ async def group_delete_handler(_, msg: Message):
 # MENTION ALL
 # =========================
 
-@app.on_message(filters.user("me") & filters.regex(r"^m_all"))
+@app.on_message(filters.user("me") & filters.regex(r"^!m_all"))
 async def mention_all(_, msg: Message):
 
     global MENTION_STATUS
@@ -512,7 +512,7 @@ async def mention_all(_, msg: Message):
 # STOP MENTION ALL
 # =========================
 
-@app.on_message(filters.user("me") & filters.regex(r"^stm_all$"))
+@app.on_message(filters.user("me") & filters.regex(r"^!stm_all$"))
 async def stop_mention_all(_, msg: Message):
 
     global MENTION_STATUS
