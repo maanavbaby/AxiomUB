@@ -153,4 +153,7 @@ async def dm_handler(_, msg: Message):
 
 print("Userbot Started...")
 update_activity()
-app.run()
+try:
+    app.run()
+except Exception as e:
+    print(e)
