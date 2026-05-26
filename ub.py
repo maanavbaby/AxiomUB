@@ -98,17 +98,22 @@ async def activity(_, msg):
 @app.on_message(filters.command("dd", prefixes="!") & filters.me)
 async def dm_disable(_, msg: Message):
 
-    if msg.chat.type != "private":
-        return await msg.delete()
+    try:
 
-    user_id = msg.chat.id
+        if msg.chat.type != "private":
+            return await msg.delete()
 
-    blocked = load_data(BLOCKED_FILE, [])
+        user_id = msg.chat.id
 
-    if user_id not in blocked:
-        blocked.append(user_id)
+        blocked = load_data(BLOCKED_FILE, [])
 
-    save_data(BLOCKED_FILE, blocked)
+        if user_id not in blocked:
+            blocked.append(user_id)
+
+        save_data(BLOCKED_FILE, blocked)
+
+    except:
+        pass
 
     await msg.delete()
 
@@ -120,17 +125,22 @@ async def dm_disable(_, msg: Message):
 @app.on_message(filters.command("da", prefixes="!") & filters.me)
 async def dm_allow(_, msg: Message):
 
-    if msg.chat.type != "private":
-        return await msg.delete()
+    try:
 
-    user_id = msg.chat.id
+        if msg.chat.type != "private":
+            return await msg.delete()
 
-    blocked = load_data(BLOCKED_FILE, [])
+        user_id = msg.chat.id
 
-    if user_id in blocked:
-        blocked.remove(user_id)
+        blocked = load_data(BLOCKED_FILE, [])
 
-    save_data(BLOCKED_FILE, blocked)
+        if user_id in blocked:
+            blocked.remove(user_id)
+
+        save_data(BLOCKED_FILE, blocked)
+
+    except:
+        pass
 
     await msg.delete()
 
@@ -142,17 +152,22 @@ async def dm_allow(_, msg: Message):
 @app.on_message(filters.command("setdmm", prefixes="!") & filters.me)
 async def set_dmm(_, msg: Message):
 
-    text = msg.text.split(None, 1)
+    try:
 
-    if len(text) < 2:
-        return await msg.delete()
+        text = msg.text.split(None, 1)
 
-    save_data(
-        DMM_FILE,
-        {
-            "message": text[1]
-        }
-    )
+        if len(text) < 2:
+            return await msg.delete()
+
+        save_data(
+            DMM_FILE,
+            {
+                "message": text[1]
+            }
+        )
+
+    except:
+        pass
 
     await msg.delete()
 
@@ -164,12 +179,17 @@ async def set_dmm(_, msg: Message):
 @app.on_message(filters.command("deldmm", prefixes="!") & filters.me)
 async def del_dmm(_, msg: Message):
 
-    save_data(
-        DMM_FILE,
-        {
-            "message": ""
-        }
-    )
+    try:
+
+        save_data(
+            DMM_FILE,
+            {
+                "message": ""
+            }
+        )
+
+    except:
+        pass
 
     await msg.delete()
 
