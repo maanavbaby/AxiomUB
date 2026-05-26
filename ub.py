@@ -98,13 +98,10 @@ async def activity(_, msg):
 @app.on_message(filters.command("dd", prefixes="!") & filters.me)
 async def dm_disable(_, msg: Message):
 
-    if not msg.reply_to_message:
+    if msg.chat.type != "private":
         return await msg.delete()
 
-    if not msg.reply_to_message.from_user:
-        return await msg.delete()
-
-    user_id = msg.reply_to_message.from_user.id
+    user_id = msg.chat.id
 
     blocked = load_data(BLOCKED_FILE, [])
 
@@ -123,13 +120,10 @@ async def dm_disable(_, msg: Message):
 @app.on_message(filters.command("da", prefixes="!") & filters.me)
 async def dm_allow(_, msg: Message):
 
-    if not msg.reply_to_message:
+    if msg.chat.type != "private":
         return await msg.delete()
 
-    if not msg.reply_to_message.from_user:
-        return await msg.delete()
-
-    user_id = msg.reply_to_message.from_user.id
+    user_id = msg.chat.id
 
     blocked = load_data(BLOCKED_FILE, [])
 
