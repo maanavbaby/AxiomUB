@@ -15,9 +15,7 @@ app = Client(
     "userbot",
     api_id=API_ID,
     api_hash=API_HASH,
-    session_string=STRING,
-    sleep_threshold=60,
-    workers=4
+    session_string=STRING
 )
 
 BLOCKED_FILE = "blocked.json"
@@ -26,7 +24,9 @@ ACTIVITY_FILE = "activity.json"
 
 
 def load_data(file, default):
+
     if not os.path.exists(file):
+
         with open(file, "w") as f:
             json.dump(default, f)
 
@@ -35,11 +35,13 @@ def load_data(file, default):
 
 
 def save_data(file, data):
+
     with open(file, "w") as f:
         json.dump(data, f)
 
 
 def update_activity():
+
     save_data(
         ACTIVITY_FILE,
         {
@@ -49,6 +51,7 @@ def update_activity():
 
 
 def get_last_seen():
+
     data = load_data(
         ACTIVITY_FILE,
         {
@@ -63,7 +66,7 @@ def get_last_seen():
 # PING
 # =========================
 
-@app.on_message(filters.command("ping", prefixes="!") & filters.me)
+@app.on_message(filters.me & filters.regex(r"^!ping$"))
 async def ping(_, msg: Message):
 
     start = time.time()
@@ -78,16 +81,16 @@ async def ping(_, msg: Message):
 
     await asyncio.sleep(2)
 
-    await x.delete()
-    await msg.delete()
+    try:
+        await x.delete()
+    except:
+        pass
 
+    try:
+        await msg.delete()
+    except:
+        pass
 
-# =========================
-# ACTIVITY TRACKER
-# =========================
-
-@app.on_message(filters.me)
-async def activity(_, msg):
     update_activity()
 
 
@@ -117,6 +120,8 @@ async def dm_disable(_, msg: Message):
     except:
         pass
 
+    update_activity()
+
 
 # =========================
 # DM ALLOW
@@ -144,9 +149,11 @@ async def dm_allow(_, msg: Message):
     except:
         pass
 
+    update_activity()
+
 
 # =========================
-# SET AUTO DM MESSAGE
+# SET DM MESSAGE
 # =========================
 
 @app.on_message(filters.me & filters.regex(r"^!setdmm"))
@@ -157,7 +164,13 @@ async def set_dmm(_, msg: Message):
         text = msg.text.split(None, 1)
 
         if len(text) < 2:
-            return await msg.delete()
+
+            try:
+                await msg.delete()
+            except:
+                pass
+
+            return
 
         save_data(
             DMM_FILE,
@@ -169,11 +182,16 @@ async def set_dmm(_, msg: Message):
     except:
         pass
 
-    await msg.delete()
+    try:
+        await msg.delete()
+    except:
+        pass
+
+    update_activity()
 
 
 # =========================
-# DELETE AUTO DM MESSAGE
+# DELETE DM MESSAGE
 # =========================
 
 @app.on_message(filters.me & filters.regex(r"^!deldmm$"))
@@ -191,7 +209,22 @@ async def del_dmm(_, msg: Message):
     except:
         pass
 
-    await msg.delete()
+    try:
+        await msg.delete()
+    except:
+        pass
+
+    update_activity()
+
+
+# =========================
+# ACTIVITY TRACKER
+# =========================
+
+@app.on_message(filters.me)
+async def activity(_, msg):
+
+    update_activity()
 
 
 # =========================
@@ -222,7 +255,7 @@ async def dm_handler(_, msg: Message):
 
         return
 
-    # AUTO DM MESSAGE
+    # OFFLINE AUTO REPLY
     last_seen = get_last_seen()
 
     if int(time.time()) - last_seen > 300:
@@ -237,10 +270,13 @@ async def dm_handler(_, msg: Message):
         if dmm["message"]:
 
             try:
+
                 await msg.reply(
                     dmm["message"],
-                    disable_web_page_preview=False
+                    disable_web_page_preview=False,
+                    parse_mode="html"
                 )
+
             except:
                 pass
 
@@ -248,7 +284,4 @@ async def dm_handler(_, msg: Message):
 print("Userbot Started...")
 update_activity()
 
-try:
-    app.run()
-except Exception as e:
-    print(e)
+app.run()
