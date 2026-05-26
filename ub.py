@@ -6,7 +6,6 @@ import logging
 
 from pyrogram import Client, filters, idle
 from pyrogram.types import Message
-from pyrogram.enums import ChatMembersFilter
 
 from config import API_ID, API_HASH, STRINGS
 
@@ -19,7 +18,7 @@ APPS = []
 
 for num, string in enumerate(STRINGS, start=1):
 
-    app = Client(
+    client = Client(
         f"userbot{num}",
         api_id=API_ID,
         api_hash=API_HASH,
@@ -29,7 +28,7 @@ for num, string in enumerate(STRINGS, start=1):
         workers=8
     )
 
-    APPS.append(app)
+    APPS.append(client)
 
 BLOCKED_FILE = "blocked.json"
 DMM_FILE = "dmm.json"
@@ -127,6 +126,15 @@ def register_handlers(app):
 
             save_data(BLOCKED_FILE, blocked)
 
+            x = await msg.reply("DM disabled.")
+
+            await asyncio.sleep(2)
+
+            try:
+                await x.delete()
+            except:
+                pass
+
         except:
             pass
 
@@ -155,6 +163,15 @@ def register_handlers(app):
 
             save_data(BLOCKED_FILE, blocked)
 
+            x = await msg.reply("DM enabled.")
+
+            await asyncio.sleep(2)
+
+            try:
+                await x.delete()
+            except:
+                pass
+
         except:
             pass
 
@@ -169,7 +186,7 @@ def register_handlers(app):
     # SET DM MESSAGE
     # =========================
 
-    @app.on_message(filters.user("me") & filters.regex(r"^!set_dmm"))
+    @app.on_message(filters.user("me") & filters.regex(r"^!set_dmm "))
     async def set_dmm(_, msg: Message):
 
         try:
@@ -184,11 +201,6 @@ def register_handlers(app):
 
                 try:
                     await x.delete()
-                except:
-                    pass
-
-                try:
-                    await msg.delete()
                 except:
                     pass
 
@@ -218,8 +230,6 @@ def register_handlers(app):
         except:
             pass
 
-        update_activity()
-
     # =========================
     # DELETE DM MESSAGE
     # =========================
@@ -236,7 +246,7 @@ def register_handlers(app):
                 }
             )
 
-            x = await msg.reply("DM message deleted successfully.")
+            x = await msg.reply("DM message deleted.")
 
             await asyncio.sleep(2)
 
@@ -253,14 +263,17 @@ def register_handlers(app):
         except:
             pass
 
-        update_activity()
-
     # =========================
     # ACTIVITY TRACKER
     # =========================
 
     @app.on_message(filters.user("me"))
     async def activity(_, msg):
+
+        if msg.text:
+
+            if msg.text.startswith("!set_dmm"):
+                return
 
         update_activity()
 
@@ -275,26 +288,12 @@ def register_handlers(app):
 
             if not msg.reply_to_message:
 
-                x = await msg.reply("Reply to a user message.")
+                x = await msg.reply("Reply to user.")
 
                 await asyncio.sleep(2)
 
                 try:
                     await x.delete()
-                except:
-                    pass
-
-                try:
-                    await msg.delete()
-                except:
-                    pass
-
-                return
-
-            if not msg.chat.type.name in ["SUPERGROUP", "GROUP"]:
-
-                try:
-                    await msg.delete()
                 except:
                     pass
 
@@ -341,26 +340,12 @@ def register_handlers(app):
 
             if not msg.reply_to_message:
 
-                x = await msg.reply("Reply to a user message.")
+                x = await msg.reply("Reply to user.")
 
                 await asyncio.sleep(2)
 
                 try:
                     await x.delete()
-                except:
-                    pass
-
-                try:
-                    await msg.delete()
-                except:
-                    pass
-
-                return
-
-            if not msg.chat.type.name in ["SUPERGROUP", "GROUP"]:
-
-                try:
-                    await msg.delete()
                 except:
                     pass
 
@@ -396,7 +381,7 @@ def register_handlers(app):
             pass
 
     # =========================
-    # GROUP MESSAGE DELETE HANDLER
+    # GROUP DELETE HANDLER
     # =========================
 
     @app.on_message(filters.group & ~filters.user("me"))
@@ -429,37 +414,23 @@ def register_handlers(app):
     # MENTION ALL
     # =========================
 
-    @app.on_message(filters.user("me") & filters.regex(r"^!m_all"))
+    @app.on_message(filters.user("me") & filters.regex(r"^!m_all "))
     async def mention_all(_, msg: Message):
 
         global MENTION_STATUS
 
         try:
 
-            if msg.chat.type.name not in ["GROUP", "SUPERGROUP"]:
-
-                try:
-                    await msg.delete()
-                except:
-                    pass
-
-                return
-
             text = msg.text.split(None, 1)
 
             if len(text) < 2:
 
-                x = await msg.reply("Give some text.")
+                x = await msg.reply("Give text.")
 
                 await asyncio.sleep(2)
 
                 try:
                     await x.delete()
-                except:
-                    pass
-
-                try:
-                    await msg.delete()
                 except:
                     pass
 
@@ -476,7 +447,7 @@ def register_handlers(app):
             except:
                 pass
 
-            async for member in app.get_chat_members(chat_id):
+            async for member in _.get_chat_members(chat_id):
 
                 if not MENTION_STATUS.get(chat_id):
                     break
@@ -490,7 +461,7 @@ def register_handlers(app):
 
                     mention = user.mention
 
-                    await app.send_message(
+                    await _.send_message(
                         chat_id,
                         f"{mention} {message_text}"
                     )
@@ -518,7 +489,7 @@ def register_handlers(app):
 
             MENTION_STATUS[chat_id] = False
 
-            x = await msg.reply("Mention all stopped.")
+            x = await msg.reply("Mention stopped.")
 
             await asyncio.sleep(2)
 
@@ -546,56 +517,61 @@ def register_handlers(app):
     )
     async def dm_handler(_, msg: Message):
 
-        if not msg.from_user:
-            return
+        try:
 
-        user_id = msg.from_user.id
+            if not msg.from_user:
+                return
 
-        blocked = load_data(BLOCKED_FILE, [])
+            user_id = msg.from_user.id
 
-        if user_id in blocked:
+            blocked = load_data(BLOCKED_FILE, [])
 
-            try:
-                await msg.delete()
-            except:
-                pass
-
-            return
-
-        last_seen = get_last_seen()
-
-        if int(time.time()) - last_seen > 300:
-
-            dmm = load_data(
-                DMM_FILE,
-                {
-                    "message": ""
-                }
-            )
-
-            if dmm["message"]:
+            if user_id in blocked:
 
                 try:
-
-                    await msg.reply(
-                        dmm["message"],
-                        disable_web_page_preview=False,
-                        parse_mode="html"
-                    )
-
+                    await msg.delete()
                 except:
                     pass
+
+                return
+
+            last_seen = get_last_seen()
+
+            if int(time.time()) - last_seen > 300:
+
+                dmm = load_data(
+                    DMM_FILE,
+                    {
+                        "message": ""
+                    }
+                )
+
+                if dmm["message"]:
+
+                    try:
+
+                        await msg.reply(
+                            dmm["message"],
+                            disable_web_page_preview=False,
+                            parse_mode="html"
+                        )
+
+                    except:
+                        pass
+
+        except:
+            pass
 
 
 async def main():
 
-    for app in APPS:
+    for client in APPS:
 
-        register_handlers(app)
+        register_handlers(client)
 
-        await app.start()
+        await client.start()
 
-        me = await app.get_me()
+        me = await client.get_me()
 
         print(f"Started -> {me.first_name}")
 
@@ -603,8 +579,9 @@ async def main():
 
     await idle()
 
-    for app in APPS:
-        await app.stop()
+    for client in APPS:
+
+        await client.stop()
 
 
 if __name__ == "__main__":
@@ -614,4 +591,3 @@ if __name__ == "__main__":
 
     except Exception as e:
         print(e)
-        
