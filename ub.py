@@ -95,7 +95,7 @@ async def activity(_, msg):
 # DM DISABLE
 # =========================
 
-@app.on_message(filters.command("dd", prefixes="!") & filters.me)
+@app.on_message(filters.me & filters.regex(r"^!dd$"))
 async def dm_disable(_, msg: Message):
 
     try:
@@ -122,7 +122,7 @@ async def dm_disable(_, msg: Message):
 # DM ALLOW
 # =========================
 
-@app.on_message(filters.command("da", prefixes="!") & filters.me)
+@app.on_message(filters.me & filters.regex(r"^!da$"))
 async def dm_allow(_, msg: Message):
 
     try:
@@ -149,7 +149,7 @@ async def dm_allow(_, msg: Message):
 # SET AUTO DM MESSAGE
 # =========================
 
-@app.on_message(filters.command("setdmm", prefixes="!") & filters.me)
+@app.on_message(filters.me & filters.regex(r"^!setdmm"))
 async def set_dmm(_, msg: Message):
 
     try:
@@ -176,7 +176,7 @@ async def set_dmm(_, msg: Message):
 # DELETE AUTO DM MESSAGE
 # =========================
 
-@app.on_message(filters.command("deldmm", prefixes="!") & filters.me)
+@app.on_message(filters.me & filters.regex(r"^!deldmm$"))
 async def del_dmm(_, msg: Message):
 
     try:
