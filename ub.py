@@ -81,7 +81,7 @@ def register_handlers(app):
     # PING
     # =========================
 
-    @app.on_message(filters.user("me") & filters.regex(r"^!ping$"))
+    @app.on_message(filters.me & filters.regex(r"^!ping$"))
     async def ping(_, msg: Message):
 
         start = time.time()
@@ -112,7 +112,7 @@ def register_handlers(app):
     # DM DISABLE
     # =========================
 
-    @app.on_message(filters.user("me") & filters.regex(r"^!d_d$"))
+    @app.on_message(filters.me & filters.regex(r"^!d_d$"))
     async def dm_disable(_, msg: Message):
 
         try:
@@ -135,8 +135,8 @@ def register_handlers(app):
             except:
                 pass
 
-        except:
-            pass
+        except Exception as e:
+            print(e)
 
         try:
             await msg.delete()
@@ -149,7 +149,7 @@ def register_handlers(app):
     # DM ALLOW
     # =========================
 
-    @app.on_message(filters.user("me") & filters.regex(r"^!d_a$"))
+    @app.on_message(filters.me & filters.regex(r"^!d_a$"))
     async def dm_allow(_, msg: Message):
 
         try:
@@ -172,8 +172,8 @@ def register_handlers(app):
             except:
                 pass
 
-        except:
-            pass
+        except Exception as e:
+            print(e)
 
         try:
             await msg.delete()
@@ -186,30 +186,28 @@ def register_handlers(app):
     # SET DM MESSAGE
     # =========================
 
-    @app.on_message(filters.user("me") & filters.regex(r"^!set_dmm "))
+    @app.on_message(filters.me & filters.command("set_dmm", prefixes="!"))
     async def set_dmm(_, msg: Message):
 
         try:
 
-            text = msg.text.split(None, 1)
-
-            if len(text) < 2:
+            if len(msg.command) < 2:
 
                 x = await msg.reply("Give a message.")
 
                 await asyncio.sleep(2)
 
-                try:
-                    await x.delete()
-                except:
-                    pass
+                await x.delete()
+                await msg.delete()
 
                 return
+
+            text = " ".join(msg.command[1:])
 
             save_data(
                 DMM_FILE,
                 {
-                    "message": text[1]
+                    "message": text
                 }
             )
 
@@ -217,13 +215,10 @@ def register_handlers(app):
 
             await asyncio.sleep(2)
 
-            try:
-                await x.delete()
-            except:
-                pass
+            await x.delete()
 
-        except:
-            pass
+        except Exception as e:
+            print(e)
 
         try:
             await msg.delete()
@@ -234,7 +229,7 @@ def register_handlers(app):
     # DELETE DM MESSAGE
     # =========================
 
-    @app.on_message(filters.user("me") & filters.regex(r"^!del_dmm$"))
+    @app.on_message(filters.me & filters.regex(r"^!del_dmm$"))
     async def del_dmm(_, msg: Message):
 
         try:
@@ -250,13 +245,10 @@ def register_handlers(app):
 
             await asyncio.sleep(2)
 
-            try:
-                await x.delete()
-            except:
-                pass
+            await x.delete()
 
-        except:
-            pass
+        except Exception as e:
+            print(e)
 
         try:
             await msg.delete()
@@ -267,7 +259,7 @@ def register_handlers(app):
     # ACTIVITY TRACKER
     # =========================
 
-    @app.on_message(filters.user("me"))
+    @app.on_message(filters.me)
     async def activity(_, msg):
 
         if msg.text:
@@ -281,7 +273,7 @@ def register_handlers(app):
     # GROUP AUTO DELETE ENABLE
     # =========================
 
-    @app.on_message(filters.user("me") & filters.regex(r"^!del_m$"))
+    @app.on_message(filters.me & filters.regex(r"^!del_m$"))
     async def enable_group_delete(_, msg: Message):
 
         try:
@@ -292,10 +284,7 @@ def register_handlers(app):
 
                 await asyncio.sleep(2)
 
-                try:
-                    await x.delete()
-                except:
-                    pass
+                await x.delete()
 
                 return
 
@@ -316,13 +305,10 @@ def register_handlers(app):
 
             await asyncio.sleep(2)
 
-            try:
-                await x.delete()
-            except:
-                pass
+            await x.delete()
 
-        except:
-            pass
+        except Exception as e:
+            print(e)
 
         try:
             await msg.delete()
@@ -333,7 +319,7 @@ def register_handlers(app):
     # GROUP AUTO DELETE DISABLE
     # =========================
 
-    @app.on_message(filters.user("me") & filters.regex(r"^!stdel_m$"))
+    @app.on_message(filters.me & filters.regex(r"^!stdel_m$"))
     async def disable_group_delete(_, msg: Message):
 
         try:
@@ -344,10 +330,7 @@ def register_handlers(app):
 
                 await asyncio.sleep(2)
 
-                try:
-                    await x.delete()
-                except:
-                    pass
+                await x.delete()
 
                 return
 
@@ -367,13 +350,10 @@ def register_handlers(app):
 
             await asyncio.sleep(2)
 
-            try:
-                await x.delete()
-            except:
-                pass
+            await x.delete()
 
-        except:
-            pass
+        except Exception as e:
+            print(e)
 
         try:
             await msg.delete()
@@ -384,7 +364,7 @@ def register_handlers(app):
     # GROUP DELETE HANDLER
     # =========================
 
-    @app.on_message(filters.group & ~filters.user("me"))
+    @app.on_message(filters.group & ~filters.me)
     async def group_delete_handler(_, msg: Message):
 
         try:
@@ -407,101 +387,102 @@ def register_handlers(app):
                 except:
                     pass
 
-        except:
-            pass
+        except Exception as e:
+            print(e)
 
     # =========================
     # MENTION ALL
     # =========================
 
-# =========================
-# MENTION ALL
-# =========================
+    @app.on_message(filters.me & filters.command("m_all", prefixes="!"))
+    async def mention_all(client, msg: Message):
 
-@app.on_message(filters.user("me") & filters.command("m_all", prefixes="!"))
-async def mention_all(client, msg: Message):
+        global MENTION_STATUS
 
-    global MENTION_STATUS
+        try:
 
-    try:
+            if msg.chat.type.name not in ["GROUP", "SUPERGROUP"]:
+                return
 
-        if msg.chat.type.name not in ["GROUP", "SUPERGROUP"]:
-            return
+            if len(msg.command) < 2:
 
-        if len(msg.command) < 2:
+                x = await msg.reply("Give text.")
 
-            x = await msg.reply("Give text.")
+                await asyncio.sleep(2)
 
-            await asyncio.sleep(2)
+                await x.delete()
+                await msg.delete()
 
-            await x.delete()
+                return
+
+            message_text = " ".join(msg.command[1:])
+
+            chat_id = msg.chat.id
+
+            MENTION_STATUS[chat_id] = True
+
             await msg.delete()
 
-            return
+            async for member in client.get_chat_members(chat_id):
 
-        message_text = " ".join(msg.command[1:])
+                if not MENTION_STATUS.get(chat_id):
+                    break
 
-        chat_id = msg.chat.id
+                user = member.user
 
-        MENTION_STATUS[chat_id] = True
+                if user.is_bot:
+                    continue
 
-        await msg.delete()
+                if user.is_deleted:
+                    continue
 
-        async for member in client.get_chat_members(chat_id):
+                try:
 
-            if not MENTION_STATUS.get(chat_id):
-                break
+                    await client.send_message(
+                        chat_id,
+                        f"[{user.first_name}](tg://user?id={user.id}) {message_text}"
+                    )
 
-            user = member.user
+                    await asyncio.sleep(3)
 
-            if user.is_bot:
-                continue
+                except Exception as e:
 
-            if user.is_deleted:
-                continue
+                    print(f"Mention Error: {e}")
 
-            try:
+                    continue
 
-                await client.send_message(
-                    chat_id,
-                    f"[{user.first_name}](tg://user?id={user.id}) {message_text}"
-                )
+        except Exception as e:
 
-                await asyncio.sleep(3)
-
-            except Exception as e:
-
-                print(f"Mention Error: {e}")
-
-                continue
-
-    except Exception as e:
-
-        print(f"Main Error: {e}")
+            print(f"Main Error: {e}")
 
     # =========================
     # STOP MENTION ALL
     # =========================
 
-# =========================
-# STOP MENTION ALL
-# =========================
+    @app.on_message(filters.me & filters.command("stm_all", prefixes="!"))
+    async def stop_mention_all(client, msg: Message):
 
-@app.on_message(filters.user("me") & filters.command("stm_all", prefixes="!"))
-async def stop_mention_all(client, msg: Message):
+        global MENTION_STATUS
 
-    global MENTION_STATUS
+        try:
 
-    chat_id = msg.chat.id
+            chat_id = msg.chat.id
 
-    MENTION_STATUS[chat_id] = False
+            MENTION_STATUS[chat_id] = False
 
-    x = await msg.reply("Stopped.")
+            x = await msg.reply("Stopped.")
 
-    await asyncio.sleep(2)
+            await asyncio.sleep(2)
 
-    await x.delete()
-    await msg.delete()
+            await x.delete()
+
+        except Exception as e:
+            print(e)
+
+        try:
+            await msg.delete()
+        except:
+            pass
 
     # =========================
     # PRIVATE DM HANDLER
@@ -509,7 +490,7 @@ async def stop_mention_all(client, msg: Message):
 
     @app.on_message(
         filters.private
-        & ~filters.user("me")
+        & ~filters.me
         & filters.text
     )
     async def dm_handler(_, msg: Message):
@@ -553,11 +534,11 @@ async def stop_mention_all(client, msg: Message):
                             parse_mode="html"
                         )
 
-                    except:
-                        pass
+                    except Exception as e:
+                        print(e)
 
-        except:
-            pass
+        except Exception as e:
+            print(e)
 
 
 async def main():
