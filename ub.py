@@ -2,19 +2,24 @@ import os
 import json
 import time
 import asyncio
+import logging
+
 from pyrogram import Client, filters
 from pyrogram.types import Message
 
 from config import API_ID, API_HASH, STRING
 
+logging.basicConfig(level=logging.ERROR)
+
 app = Client(
     "userbot",
     api_id=API_ID,
     api_hash=API_HASH,
-    session_string=STRING
+    session_string=STRING,
+    sleep_threshold=60,
+    workers=4
 )
 
-ALLOWED_FILE = "allowed.json"
 BLOCKED_FILE = "blocked.json"
 DMM_FILE = "dmm.json"
 ACTIVITY_FILE = "activity.json"
@@ -24,6 +29,7 @@ def load_data(file, default):
     if not os.path.exists(file):
         with open(file, "w") as f:
             json.dump(default, f)
+
     with open(file, "r") as f:
         return json.load(f)
 
@@ -34,16 +40,32 @@ def save_data(file, data):
 
 
 def update_activity():
-    save_data(ACTIVITY_FILE, {"last_seen": int(time.time())})
+    save_data(
+        ACTIVITY_FILE,
+        {
+            "last_seen": int(time.time())
+        }
+    )
 
 
 def get_last_seen():
-    data = load_data(ACTIVITY_FILE, {"last_seen": int(time.time())})
+    data = load_data(
+        ACTIVITY_FILE,
+        {
+            "last_seen": int(time.time())
+        }
+    )
+
     return data["last_seen"]
 
 
+# =========================
+# PING
+# =========================
+
 @app.on_message(filters.command("ping", prefixes="!") & filters.me)
 async def ping(_, msg: Message):
+
     start = time.time()
 
     x = await msg.reply("Pinging...")
@@ -60,19 +82,26 @@ async def ping(_, msg: Message):
     await msg.delete()
 
 
+# =========================
+# ACTIVITY TRACKER
+# =========================
+
 @app.on_message(filters.me)
 async def activity(_, msg):
     update_activity()
 
 
-@app.on_message(filters.command("dd", prefixes="!") & filters.private & ~filters.me)
-async def block_dm(_, msg: Message):
-    pass
-
+# =========================
+# DM DISABLE
+# =========================
 
 @app.on_message(filters.command("dd", prefixes="!") & filters.me)
 async def dm_disable(_, msg: Message):
+
     if not msg.reply_to_message:
+        return await msg.delete()
+
+    if not msg.reply_to_message.from_user:
         return await msg.delete()
 
     user_id = msg.reply_to_message.from_user.id
@@ -87,9 +116,17 @@ async def dm_disable(_, msg: Message):
     await msg.delete()
 
 
+# =========================
+# DM ALLOW
+# =========================
+
 @app.on_message(filters.command("da", prefixes="!") & filters.me)
 async def dm_allow(_, msg: Message):
+
     if not msg.reply_to_message:
+        return await msg.delete()
+
+    if not msg.reply_to_message.from_user:
         return await msg.delete()
 
     user_id = msg.reply_to_message.from_user.id
@@ -104,44 +141,87 @@ async def dm_allow(_, msg: Message):
     await msg.delete()
 
 
+# =========================
+# SET AUTO DM MESSAGE
+# =========================
+
 @app.on_message(filters.command("setdmm", prefixes="!") & filters.me)
 async def set_dmm(_, msg: Message):
+
     text = msg.text.split(None, 1)
 
     if len(text) < 2:
         return await msg.delete()
 
-    save_data(DMM_FILE, {"message": text[1]})
+    save_data(
+        DMM_FILE,
+        {
+            "message": text[1]
+        }
+    )
 
     await msg.delete()
 
+
+# =========================
+# DELETE AUTO DM MESSAGE
+# =========================
 
 @app.on_message(filters.command("deldmm", prefixes="!") & filters.me)
 async def del_dmm(_, msg: Message):
-    save_data(DMM_FILE, {"message": ""})
+
+    save_data(
+        DMM_FILE,
+        {
+            "message": ""
+        }
+    )
 
     await msg.delete()
 
 
-@app.on_message(filters.private & ~filters.me)
+# =========================
+# PRIVATE DM HANDLER
+# =========================
+
+@app.on_message(
+    filters.private
+    & ~filters.me
+    & filters.text
+)
 async def dm_handler(_, msg: Message):
+
+    if not msg.from_user:
+        return
+
     user_id = msg.from_user.id
 
     blocked = load_data(BLOCKED_FILE, [])
 
+    # BLOCKED USER
     if user_id in blocked:
+
         try:
             await msg.delete()
         except:
             pass
+
         return
 
+    # AUTO DM MESSAGE
     last_seen = get_last_seen()
 
     if int(time.time()) - last_seen > 300:
-        dmm = load_data(DMM_FILE, {"message": ""})
+
+        dmm = load_data(
+            DMM_FILE,
+            {
+                "message": ""
+            }
+        )
 
         if dmm["message"]:
+
             try:
                 await msg.reply(
                     dmm["message"],
@@ -153,6 +233,7 @@ async def dm_handler(_, msg: Message):
 
 print("Userbot Started...")
 update_activity()
+
 try:
     app.run()
 except Exception as e:
