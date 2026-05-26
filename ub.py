@@ -25,6 +25,7 @@ app = Client(
 BLOCKED_FILE = "blocked.json"
 DMM_FILE = "dmm.json"
 ACTIVITY_FILE = "activity.json"
+GROUP_DELETE_FILE = "group_delete.json"
 
 
 def load_data(file, default):
@@ -265,6 +266,168 @@ async def activity(_, msg):
 
     update_activity()
 
+# =========================
+# GROUP AUTO DELETE ENABLE
+# =========================
+
+@app.on_message(filters.user("me") & filters.regex(r"^del_m$"))
+async def enable_group_delete(_, msg: Message):
+
+    try:
+
+        if not msg.reply_to_message:
+
+            x = await msg.reply("Reply to a user message.")
+
+            await asyncio.sleep(2)
+
+            try:
+                await x.delete()
+            except:
+                pass
+
+            try:
+                await msg.delete()
+            except:
+                pass
+
+            return
+
+        if not msg.chat.type.name in ["SUPERGROUP", "GROUP"]:
+
+            try:
+                await msg.delete()
+            except:
+                pass
+
+            return
+
+        user_id = msg.reply_to_message.from_user.id
+        chat_id = str(msg.chat.id)
+
+        data = load_data(GROUP_DELETE_FILE, {})
+
+        if chat_id not in data:
+            data[chat_id] = []
+
+        if user_id not in data[chat_id]:
+            data[chat_id].append(user_id)
+
+        save_data(GROUP_DELETE_FILE, data)
+
+        x = await msg.reply("Auto delete enabled.")
+
+        await asyncio.sleep(2)
+
+        try:
+            await x.delete()
+        except:
+            pass
+
+    except:
+        pass
+
+    try:
+        await msg.delete()
+    except:
+        pass
+
+
+# =========================
+# GROUP AUTO DELETE DISABLE
+# =========================
+
+@app.on_message(filters.user("me") & filters.regex(r"^stdel_m$"))
+async def disable_group_delete(_, msg: Message):
+
+    try:
+
+        if not msg.reply_to_message:
+
+            x = await msg.reply("Reply to a user message.")
+
+            await asyncio.sleep(2)
+
+            try:
+                await x.delete()
+            except:
+                pass
+
+            try:
+                await msg.delete()
+            except:
+                pass
+
+            return
+
+        if not msg.chat.type.name in ["SUPERGROUP", "GROUP"]:
+
+            try:
+                await msg.delete()
+            except:
+                pass
+
+            return
+
+        user_id = msg.reply_to_message.from_user.id
+        chat_id = str(msg.chat.id)
+
+        data = load_data(GROUP_DELETE_FILE, {})
+
+        if chat_id in data:
+
+            if user_id in data[chat_id]:
+                data[chat_id].remove(user_id)
+
+        save_data(GROUP_DELETE_FILE, data)
+
+        x = await msg.reply("Auto delete disabled.")
+
+        await asyncio.sleep(2)
+
+        try:
+            await x.delete()
+        except:
+            pass
+
+    except:
+        pass
+
+    try:
+        await msg.delete()
+    except:
+        pass
+
+
+# =========================
+# GROUP MESSAGE DELETE HANDLER
+# =========================
+
+@app.on_message(filters.group & ~filters.user("me"))
+async def group_delete_handler(_, msg: Message):
+
+    try:
+
+        if not msg.from_user:
+            return
+
+        user_id = msg.from_user.id
+        chat_id = str(msg.chat.id)
+
+        data = load_data(GROUP_DELETE_FILE, {})
+
+        if chat_id not in data:
+            return
+
+        if user_id in data[chat_id]:
+
+            try:
+                await msg.delete()
+            except:
+                pass
+
+    except:
+        pass
 
 # =========================
 # PRIVATE DM HANDLER
