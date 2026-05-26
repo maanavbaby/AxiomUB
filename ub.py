@@ -100,9 +100,6 @@ async def dm_disable(_, msg: Message):
 
     try:
 
-        if msg.chat.type != "private":
-            return await msg.delete()
-
         user_id = msg.chat.id
 
         blocked = load_data(BLOCKED_FILE, [])
@@ -115,7 +112,10 @@ async def dm_disable(_, msg: Message):
     except:
         pass
 
-    await msg.delete()
+    try:
+        await msg.delete()
+    except:
+        pass
 
 
 # =========================
@@ -126,9 +126,6 @@ async def dm_disable(_, msg: Message):
 async def dm_allow(_, msg: Message):
 
     try:
-
-        if msg.chat.type != "private":
-            return await msg.delete()
 
         user_id = msg.chat.id
 
@@ -142,7 +139,10 @@ async def dm_allow(_, msg: Message):
     except:
         pass
 
-    await msg.delete()
+    try:
+        await msg.delete()
+    except:
+        pass
 
 
 # =========================
