@@ -1,6 +1,7 @@
 import os
 import json
 import time
+import asyncio
 from pyrogram import Client, filters
 from pyrogram.types import Message
 
@@ -39,6 +40,24 @@ def update_activity():
 def get_last_seen():
     data = load_data(ACTIVITY_FILE, {"last_seen": int(time.time())})
     return data["last_seen"]
+
+
+@app.on_message(filters.command("ping", prefixes="!") & filters.me)
+async def ping(_, msg: Message):
+    start = time.time()
+
+    x = await msg.reply("Pinging...")
+
+    end = time.time()
+
+    ms = round((end - start) * 1000)
+
+    await x.edit(f"Pong! {ms}ms")
+
+    await asyncio.sleep(2)
+
+    await x.delete()
+    await msg.delete()
 
 
 @app.on_message(filters.me)
