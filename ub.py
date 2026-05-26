@@ -414,65 +414,56 @@ def register_handlers(app):
     # MENTION ALL
     # =========================
 
-    @app.on_message(filters.user("me") & filters.regex(r"^!m_all "))
-    async def mention_all(_, msg: Message):
+@app.on_message(filters.user("me") & filters.regex(r"^!m_all"))
+async def mention_all(_, msg: Message):
 
-        global MENTION_STATUS
+    global MENTION_STATUS
+
+    try:
+
+        if msg.chat.type.name not in ["GROUP", "SUPERGROUP"]:
+            return
+
+        text = msg.text.split(None, 1)
+
+        if len(text) < 2:
+            return
+
+        message_text = text[1]
+
+        chat_id = msg.chat.id
+
+        MENTION_STATUS[chat_id] = True
 
         try:
+            await msg.delete()
+        except:
+            pass
 
-            text = msg.text.split(None, 1)
+        async for member in _.get_chat_members(chat_id):
 
-            if len(text) < 2:
+            if not MENTION_STATUS.get(chat_id):
+                break
 
-                x = await msg.reply("Give text.")
+            user = member.user
+
+            if user.is_bot:
+                continue
+
+            try:
+
+                await _.send_message(
+                    chat_id,
+                    f"[{user.first_name}](tg://user?id={user.id}) {message_text}"
+                )
 
                 await asyncio.sleep(2)
 
-                try:
-                    await x.delete()
-                except:
-                    pass
+            except Exception as e:
+                print(e)
 
-                return
-
-            message_text = text[1]
-
-            chat_id = msg.chat.id
-
-            MENTION_STATUS[chat_id] = True
-
-            try:
-                await msg.delete()
-            except:
-                pass
-
-            async for member in _.get_chat_members(chat_id):
-
-                if not MENTION_STATUS.get(chat_id):
-                    break
-
-                user = member.user
-
-                if user.is_bot:
-                    continue
-
-                try:
-
-                    mention = user.mention
-
-                    await _.send_message(
-                        chat_id,
-                        f"{mention} {message_text}"
-                    )
-
-                    await asyncio.sleep(2)
-
-                except:
-                    pass
-
-        except:
-            pass
+    except Exception as e:
+        print(e)
 
     # =========================
     # STOP MENTION ALL
