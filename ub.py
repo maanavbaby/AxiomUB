@@ -70,7 +70,7 @@ def get_last_seen():
 # PING
 # =========================
 
-@app.on_message(filters.user("me") & filters.regex(r"^!ping$"))
+@app.on_message(filters.user("me") & filters.regex(r"^ping$"))
 async def ping(_, msg: Message):
 
     start = time.time()
@@ -102,7 +102,7 @@ async def ping(_, msg: Message):
 # DM DISABLE
 # =========================
 
-@app.on_message(filters.user("me") & filters.regex(r"^!dd$"))
+@app.on_message(filters.user("me") & filters.regex(r"^d_d$"))
 async def dm_disable(_, msg: Message):
 
     try:
@@ -131,7 +131,7 @@ async def dm_disable(_, msg: Message):
 # DM ALLOW
 # =========================
 
-@app.on_message(filters.user("me") & filters.regex(r"^!da$"))
+@app.on_message(filters.user("me") & filters.regex(r"^d_a$"))
 async def dm_allow(_, msg: Message):
 
     try:
@@ -164,7 +164,7 @@ async def dm_allow(_, msg: Message):
 # SET DM MESSAGE
 # =========================
 
-@app.on_message(filters.user("me") & filters.regex(r"^!setdmm"))
+@app.on_message(filters.user("me") & filters.regex(r"^set_dmm"))
 async def set_dmm(_, msg: Message):
 
     try:
@@ -224,7 +224,7 @@ async def set_dmm(_, msg: Message):
 # DELETE DM MESSAGE
 # =========================
 
-@app.on_message(filters.user("me") & filters.regex(r"^!deldmm$"))
+@app.on_message(filters.user("me") & filters.regex(r"^del_dmm$"))
 async def del_dmm(_, msg: Message):
 
     try:
