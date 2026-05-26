@@ -160,6 +160,10 @@ async def dm_allow(_, msg: Message):
 # SET DM MESSAGE
 # =========================
 
+# =========================
+# SET DM MESSAGE
+# =========================
+
 @app.on_message(filters.user("me") & filters.regex(r"^!setdmm"))
 async def set_dmm(_, msg: Message):
 
@@ -168,6 +172,15 @@ async def set_dmm(_, msg: Message):
         text = msg.text.split(None, 1)
 
         if len(text) < 2:
+
+            x = await msg.reply("Give a message.")
+
+            await asyncio.sleep(2)
+
+            try:
+                await x.delete()
+            except:
+                pass
 
             try:
                 await msg.delete()
@@ -182,6 +195,15 @@ async def set_dmm(_, msg: Message):
                 "message": text[1]
             }
         )
+
+        x = await msg.reply("DM message saved successfully.")
+
+        await asyncio.sleep(2)
+
+        try:
+            await x.delete()
+        except:
+            pass
 
     except:
         pass
@@ -198,6 +220,10 @@ async def set_dmm(_, msg: Message):
 # DELETE DM MESSAGE
 # =========================
 
+# =========================
+# DELETE DM MESSAGE
+# =========================
+
 @app.on_message(filters.user("me") & filters.regex(r"^!deldmm$"))
 async def del_dmm(_, msg: Message):
 
@@ -209,6 +235,15 @@ async def del_dmm(_, msg: Message):
                 "message": ""
             }
         )
+
+        x = await msg.reply("DM message deleted successfully.")
+
+        await asyncio.sleep(2)
+
+        try:
+            await x.delete()
+        except:
+            pass
 
     except:
         pass
