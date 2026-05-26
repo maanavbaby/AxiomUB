@@ -8,22 +8,28 @@ from pyrogram import Client, filters, idle
 from pyrogram.types import Message
 from pyrogram.enums import ChatMembersFilter
 
-from config import API_ID, API_HASH, STRING
+from config import API_ID, API_HASH, STRINGS
 
 MENTION_STATUS = {}
 
 logging.basicConfig(level=logging.ERROR)
 logging.getLogger("pyrogram").setLevel(logging.CRITICAL)
 
-app = Client(
-    "userbot",
-    api_id=API_ID,
-    api_hash=API_HASH,
-    session_string=STRING,
-    no_updates=False,
-    sleep_threshold=30,
-    workers=8
-)
+APPS = []
+
+for num, string in enumerate(STRINGS, start=1):
+
+    app = Client(
+        f"userbot{num}",
+        api_id=API_ID,
+        api_hash=API_HASH,
+        session_string=string,
+        no_updates=False,
+        sleep_threshold=30,
+        workers=8
+    )
+
+    APPS.append(app)
 
 
 BLOCKED_FILE = "blocked.json"
