@@ -4,7 +4,7 @@ import time
 import asyncio
 import logging
 
-from pyrogram import Client, filters
+from pyrogram import Client, filters, idle
 from pyrogram.types import Message
 
 from config import API_ID, API_HASH, STRING
@@ -320,10 +320,23 @@ async def dm_handler(_, msg: Message):
                 pass
 
 
-print("Userbot Started...")
-update_activity()
+async def main():
 
-try:
-    app.run()
-except Exception as e:
-    print(e)
+    await app.start()
+
+    print("Userbot Started...")
+
+    update_activity()
+
+    await idle()
+
+    await app.stop()
+
+
+if __name__ == "__main__":
+
+    try:
+        asyncio.get_event_loop().run_until_complete(main())
+
+    except Exception as e:
+        print(e)
