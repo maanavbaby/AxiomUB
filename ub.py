@@ -414,8 +414,12 @@ def register_handlers(app):
     # MENTION ALL
     # =========================
 
-@app.on_message(filters.user("me") & filters.regex(r"^!m_all"))
-async def mention_all(_, msg: Message):
+# =========================
+# MENTION ALL
+# =========================
+
+@app.on_message(filters.user("me") & filters.command("m_all", prefixes="!"))
+async def mention_all(client, msg: Message):
 
     global MENTION_STATUS
 
@@ -424,23 +428,26 @@ async def mention_all(_, msg: Message):
         if msg.chat.type.name not in ["GROUP", "SUPERGROUP"]:
             return
 
-        text = msg.text.split(None, 1)
+        if len(msg.command) < 2:
 
-        if len(text) < 2:
+            x = await msg.reply("Give text.")
+
+            await asyncio.sleep(2)
+
+            await x.delete()
+            await msg.delete()
+
             return
 
-        message_text = text[1]
+        message_text = " ".join(msg.command[1:])
 
         chat_id = msg.chat.id
 
         MENTION_STATUS[chat_id] = True
 
-        try:
-            await msg.delete()
-        except:
-            pass
+        await msg.delete()
 
-        async for member in _.get_chat_members(chat_id):
+        async for member in client.get_chat_members(chat_id):
 
             if not MENTION_STATUS.get(chat_id):
                 break
@@ -450,52 +457,51 @@ async def mention_all(_, msg: Message):
             if user.is_bot:
                 continue
 
+            if user.is_deleted:
+                continue
+
             try:
 
-                await _.send_message(
+                await client.send_message(
                     chat_id,
                     f"[{user.first_name}](tg://user?id={user.id}) {message_text}"
                 )
 
-                await asyncio.sleep(2)
+                await asyncio.sleep(3)
 
             except Exception as e:
-                print(e)
+
+                print(f"Mention Error: {e}")
+
+                continue
 
     except Exception as e:
-        print(e)
+
+        print(f"Main Error: {e}")
 
     # =========================
     # STOP MENTION ALL
     # =========================
 
-    @app.on_message(filters.user("me") & filters.regex(r"^!stm_all$"))
-    async def stop_mention_all(_, msg: Message):
+# =========================
+# STOP MENTION ALL
+# =========================
 
-        global MENTION_STATUS
+@app.on_message(filters.user("me") & filters.command("stm_all", prefixes="!"))
+async def stop_mention_all(client, msg: Message):
 
-        try:
+    global MENTION_STATUS
 
-            chat_id = msg.chat.id
+    chat_id = msg.chat.id
 
-            MENTION_STATUS[chat_id] = False
+    MENTION_STATUS[chat_id] = False
 
-            x = await msg.reply("Mention stopped.")
+    x = await msg.reply("Stopped.")
 
-            await asyncio.sleep(2)
+    await asyncio.sleep(2)
 
-            try:
-                await x.delete()
-            except:
-                pass
-
-        except:
-            pass
-
-        try:
-            await msg.delete()
-        except:
-            pass
+    await x.delete()
+    await msg.delete()
 
     # =========================
     # PRIVATE DM HANDLER
