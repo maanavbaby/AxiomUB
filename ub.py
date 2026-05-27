@@ -164,7 +164,11 @@ def register_handlers(app):
 
             save_data(BLOCKED_FILE, blocked)
 
+ codex/find-and-fix-command-errors-94mqpv
             await send_confirm(msg, f"DM DISABLED FOR {target_user_id}")
+
+            await send_confirm(msg, "DM DISABLED SUCCESSFULLY")
+ main
 
         except Exception as e:
             print(e)
@@ -176,6 +180,13 @@ def register_handlers(app):
 
         update_activity()
 
+ codex/find-and-fix-command-errors-94mqpv
+
+    # =========================
+    # DM ALLOW
+    # =========================
+
+ main
     @app.on_message(filters.me & filters.regex(r"(?i)^!d_a$"))
     async def dm_allow(_, msg: Message):
 
@@ -198,7 +209,11 @@ def register_handlers(app):
 
             save_data(BLOCKED_FILE, blocked)
 
+ codex/find-and-fix-command-errors-94mqpv
             await send_confirm(msg, f"DM ENABLED FOR {target_user_id}")
+
+            await send_confirm(msg, "DM ENABLED SUCCESSFULLY")
+ main
 
         except Exception as e:
             print(e)
@@ -294,7 +309,11 @@ def register_handlers(app):
     # =========================
 
     @app.on_message(filters.me & filters.regex(r"(?i)^!del_m$"))
+ codex/find-and-fix-command-errors-94mqpv
     async def enable_group_delete(client, msg: Message):
+
+    async def enable_group_delete(_, msg: Message):
+ main
 
         try:
 
@@ -302,6 +321,7 @@ def register_handlers(app):
                 await send_error(msg, "USE THIS COMMAND IN GROUP")
                 return
 
+ codex/find-and-fix-command-errors-94mqpv
             me = await client.get_me()
             my_member = await client.get_chat_member(msg.chat.id, me.id)
             if my_member.status not in ["administrator", "owner"]:
@@ -310,6 +330,8 @@ def register_handlers(app):
 
             if not msg.reply_to_message or not msg.reply_to_message.from_user:
 
+
+ main
                 await send_error(msg, "REPLY TO A USER MESSAGE")
 
                 return
@@ -327,7 +349,11 @@ def register_handlers(app):
 
             save_data(GROUP_DELETE_FILE, data)
 
+ codex/find-and-fix-command-errors-94mqpv
             await send_confirm(msg, f"AUTO DELETE ENABLED FOR {user_id}")
+
+            await send_confirm(msg, "AUTO DELETE ENABLED")
+ main
 
         except Exception as e:
             print(e)
@@ -337,12 +363,23 @@ def register_handlers(app):
         except:
             pass
 
+ codex/find-and-fix-command-errors-94mqpv
+
+    # =========================
+    # GROUP AUTO DELETE DISABLE
+    # =========================
+
+ main
     @app.on_message(filters.me & filters.regex(r"(?i)^!stdel_m$"))
     async def disable_group_delete(_, msg: Message):
 
         try:
 
+ codex/find-and-fix-command-errors-94mqpv
             if not msg.reply_to_message or not msg.reply_to_message.from_user:
+
+            if not msg.reply_to_message:
+ main
 
                 await send_error(msg, "REPLY TO A USER MESSAGE")
 
@@ -358,7 +395,11 @@ def register_handlers(app):
 
             save_data(GROUP_DELETE_FILE, data)
 
+ codex/find-and-fix-command-errors-94mqpv
             await send_confirm(msg, f"AUTO DELETE DISABLED FOR {user_id}")
+
+            await send_confirm(msg, "AUTO DELETE DISABLED")
+ main
 
         except Exception as e:
             print(e)
@@ -423,12 +464,15 @@ def register_handlers(app):
 
                 return
 
+ codex/find-and-fix-command-errors-94mqpv
             me = await client.get_me()
             my_member = await client.get_chat_member(msg.chat.id, me.id)
             if my_member.status not in ["administrator", "owner"]:
                 await send_error(msg, "I MUST BE GROUP ADMIN")
                 return
 
+
+ main
             message_text = " ".join(args)
 
             chat_id = msg.chat.id
@@ -453,6 +497,10 @@ def register_handlers(app):
                         chat_id,
                         f"[{user.first_name}](tg://user?id={user.id}) {message_text}"
                     )
+ codex/find-and-fix-command-errors-94mqpv
+
+
+ main
                     await asyncio.sleep(2)
 
                 except Exception as e:
@@ -467,7 +515,11 @@ def register_handlers(app):
     # =========================
 
     @app.on_message(filters.me & filters.regex(r"(?i)^!stm_all$"))
+ codex/find-and-fix-command-errors-94mqpv
     async def stop_mention_all(_, msg: Message):
+
+    async def stop_mention_all(client, msg: Message):
+ main
 
         global MENTION_STATUS
 
@@ -475,6 +527,10 @@ def register_handlers(app):
 
             chat_id = msg.chat.id
             MENTION_STATUS[chat_id] = False
+ codex/find-and-fix-command-errors-94mqpv
+
+
+ main
             await send_confirm(msg, "MENTION ALL STOPPED")
 
         except Exception as e:
@@ -485,7 +541,10 @@ def register_handlers(app):
         except:
             pass
 
+ codex/find-and-fix-command-errors-94mqpv
     # =========================
+
+ main
     # PRIVATE DM HANDLER
     # =========================
 
