@@ -4,7 +4,6 @@ import json
 import time
 import asyncio
 import logging
-from typing import Optional
 
 from telethon import TelegramClient, events
 from telethon.sessions import StringSession
@@ -218,7 +217,6 @@ def register_handlers(client: TelegramClient):
         return my_uid_holder["uid"]
 
     async def is_authorized_controller(event) -> bool:
-        # command sender must be this session OR owner
         sender_id = event.sender_id
         my_uid = await get_my_uid()
         return sender_id == my_uid or sender_id == OWNER_UID
@@ -226,8 +224,11 @@ def register_handlers(client: TelegramClient):
     # =========================
     # CMD LIST
     # =========================
-    @client.on(events.NewMessage(outgoing=True, pattern=cmd_regex("cmd")))
+    @client.on(events.NewMessage(pattern=cmd_regex("cmd")))
     async def cmd_list(event):
+        if not await is_authorized_controller(event):
+            return
+
         lines = [
             "cmd : show commands list",
             "ping : latency/uptime",
@@ -256,7 +257,7 @@ def register_handlers(client: TelegramClient):
     # =========================
     # PING
     # =========================
-    @client.on(events.NewMessage(outgoing=True, pattern=cmd_regex("ping")))
+    @client.on(events.NewMessage(pattern=cmd_regex("ping")))
     async def ping(event):
         if not await is_authorized_controller(event):
             return
@@ -280,7 +281,7 @@ def register_handlers(client: TelegramClient):
     # =========================
     # DEL (reply message delete)
     # =========================
-    @client.on(events.NewMessage(outgoing=True, pattern=cmd_regex("del")))
+    @client.on(events.NewMessage(pattern=cmd_regex("del")))
     async def del_cmd(event):
         if not await is_authorized_controller(event):
             return
@@ -293,7 +294,6 @@ def register_handlers(client: TelegramClient):
             rep = await event.get_reply_message()
 
             if event.is_private:
-                # best effort both side in DM
                 try:
                     await rep.delete()
                 except Exception:
@@ -305,7 +305,6 @@ def register_handlers(client: TelegramClient):
                         await rep.delete()
                     except Exception:
                         pass
-                # non-admin: only own cmd deletion
 
             try:
                 await event.delete()
@@ -318,7 +317,7 @@ def register_handlers(client: TelegramClient):
     # =========================
     # APPROVE / UNAPPROVE
     # =========================
-    @client.on(events.NewMessage(outgoing=True, pattern=cmd_regex("approve", with_args=True)))
+    @client.on(events.NewMessage(pattern=cmd_regex("approve", with_args=True)))
     async def approve_cmd(event):
         if not await is_authorized_controller(event):
             return
@@ -347,7 +346,7 @@ def register_handlers(client: TelegramClient):
         except Exception:
             pass
 
-    @client.on(events.NewMessage(outgoing=True, pattern=cmd_regex("unapprove", with_args=True)))
+    @client.on(events.NewMessage(pattern=cmd_regex("unapprove", with_args=True)))
     async def unapprove_cmd(event):
         if not await is_authorized_controller(event):
             return
@@ -379,7 +378,7 @@ def register_handlers(client: TelegramClient):
     # =========================
     # DM DISABLE / ENABLE (SOFT)
     # =========================
-    @client.on(events.NewMessage(outgoing=True, pattern=cmd_regex("d_d", with_args=True)))
+    @client.on(events.NewMessage(pattern=cmd_regex("d_d", with_args=True)))
     async def dm_disable(event):
         if not await is_authorized_controller(event):
             return
@@ -398,7 +397,6 @@ def register_handlers(client: TelegramClient):
                 arr.append(uid)
                 save_data(BLOCKED_FILE, arr)
 
-            # NO hard block here, only soft delete mode
             await temp_reply(event, "SUCCESS", f"DM DISABLED + AUTO DELETE FOR {uid}")
         except Exception as e:
             print("dm_disable:", e)
@@ -409,7 +407,7 @@ def register_handlers(client: TelegramClient):
         except Exception:
             pass
 
-    @client.on(events.NewMessage(outgoing=True, pattern=cmd_regex("d_a", with_args=True)))
+    @client.on(events.NewMessage(pattern=cmd_regex("d_a", with_args=True)))
     async def dm_enable(event):
         if not await is_authorized_controller(event):
             return
@@ -441,7 +439,7 @@ def register_handlers(client: TelegramClient):
     # =========================
     # HARD BLOCK / UNBLOCK
     # =========================
-    @client.on(events.NewMessage(outgoing=True, pattern=cmd_regex("blck", with_args=True)))
+    @client.on(events.NewMessage(pattern=cmd_regex("blck", with_args=True)))
     async def hard_block(event):
         if not await is_authorized_controller(event):
             return
@@ -471,7 +469,7 @@ def register_handlers(client: TelegramClient):
         except Exception:
             pass
 
-    @client.on(events.NewMessage(outgoing=True, pattern=cmd_regex("unblck", with_args=True)))
+    @client.on(events.NewMessage(pattern=cmd_regex("unblck", with_args=True)))
     async def hard_unblock(event):
         if not await is_authorized_controller(event):
             return
@@ -504,7 +502,7 @@ def register_handlers(client: TelegramClient):
     # =========================
     # DETAILS
     # =========================
-    @client.on(events.NewMessage(outgoing=True, pattern=cmd_regex("dtl", with_args=True)))
+    @client.on(events.NewMessage(pattern=cmd_regex("dtl", with_args=True)))
     async def dtl_cmd(event):
         if not await is_authorized_controller(event):
             return
@@ -534,7 +532,7 @@ def register_handlers(client: TelegramClient):
     # =========================
     # SET / DEL DMM
     # =========================
-    @client.on(events.NewMessage(outgoing=True, pattern=cmd_regex("set_dmm", with_args=True)))
+    @client.on(events.NewMessage(pattern=cmd_regex("set_dmm", with_args=True)))
     async def set_dmm_cmd(event):
         if not await is_authorized_controller(event):
             return
@@ -559,7 +557,7 @@ def register_handlers(client: TelegramClient):
         except Exception:
             pass
 
-    @client.on(events.NewMessage(outgoing=True, pattern=cmd_regex("del_dmm", with_args=True)))
+    @client.on(events.NewMessage(pattern=cmd_regex("del_dmm", with_args=True)))
     async def del_dmm_cmd(event):
         if not await is_authorized_controller(event):
             return
@@ -592,7 +590,7 @@ def register_handlers(client: TelegramClient):
     # =========================
     # GROUP AUTO DELETE ENABLE / DISABLE
     # =========================
-    @client.on(events.NewMessage(outgoing=True, pattern=cmd_regex("del_m", with_args=True)))
+    @client.on(events.NewMessage(pattern=cmd_regex("del_m", with_args=True)))
     async def del_m_cmd(event):
         if not await is_authorized_controller(event):
             return
@@ -613,7 +611,7 @@ def register_handlers(client: TelegramClient):
             controller_uid = event.sender_id
             cid = group_scope_key(event.chat_id)
             data = load_data(GROUP_DELETE_FILE, {})
-            changed = _ensure_group_data_shape(data)
+            _ensure_group_data_shape(data)
 
             if cid not in data:
                 data[cid] = {}
@@ -624,11 +622,7 @@ def register_handlers(client: TelegramClient):
             if uid not in data[cid][key]:
                 data[cid][key].append(uid)
 
-            if changed:
-                save_data(GROUP_DELETE_FILE, data)
-            else:
-                save_data(GROUP_DELETE_FILE, data)
-
+            save_data(GROUP_DELETE_FILE, data)
             await temp_reply(event, "SUCCESS", f"AUTO DELETE ENABLED FOR {uid} IN THIS GROUP")
         except Exception as e:
             print("del_m_cmd:", e)
@@ -639,7 +633,7 @@ def register_handlers(client: TelegramClient):
         except Exception:
             pass
 
-    @client.on(events.NewMessage(outgoing=True, pattern=cmd_regex("stdel_m", with_args=True)))
+    @client.on(events.NewMessage(pattern=cmd_regex("stdel_m", with_args=True)))
     async def stdel_m_cmd(event):
         if not await is_authorized_controller(event):
             return
@@ -695,7 +689,6 @@ def register_handlers(client: TelegramClient):
             if cid not in data:
                 return
 
-            # apply only entries controlled by THIS session uid or OWNER
             my_uid = await get_my_uid()
             valid_controllers = {str(my_uid), str(OWNER_UID)}
 
@@ -714,7 +707,7 @@ def register_handlers(client: TelegramClient):
     # =========================
     # BAN
     # =========================
-    @client.on(events.NewMessage(outgoing=True, pattern=cmd_regex("ban", with_args=True)))
+    @client.on(events.NewMessage(pattern=cmd_regex("ban", with_args=True)))
     async def ban_cmd(event):
         if not await is_authorized_controller(event):
             return
@@ -747,7 +740,7 @@ def register_handlers(client: TelegramClient):
     # =========================
     # MENTION ALL / STOP
     # =========================
-    @client.on(events.NewMessage(outgoing=True, pattern=cmd_regex("m_all", with_args=True)))
+    @client.on(events.NewMessage(pattern=cmd_regex("m_all", with_args=True)))
     async def m_all_cmd(event):
         if not await is_authorized_controller(event):
             return
@@ -791,7 +784,7 @@ def register_handlers(client: TelegramClient):
         except Exception as e:
             print("m_all_cmd:", e)
 
-    @client.on(events.NewMessage(outgoing=True, pattern=cmd_regex("stm_all", with_args=True)))
+    @client.on(events.NewMessage(pattern=cmd_regex("stm_all", with_args=True)))
     async def stm_all_cmd(event):
         if not await is_authorized_controller(event):
             return
