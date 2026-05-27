@@ -15,6 +15,7 @@ logging.basicConfig(level=logging.ERROR)
 
 MENTION_STATUS = {}
 AWAY_SECONDS = 30
+PREFIXES = ["!", "", "/", ".", "#", "%"]
 
 BLOCKED_FILE = "blocked.json"
 DMM_FILE = "dmm.json"
@@ -74,6 +75,13 @@ async def get_target_user_id(event):
         if reply and reply.sender_id:
             return reply.sender_id
     return None
+
+
+def cmd_regex(command: str, with_args: bool = False) -> str:
+    prefix_part = r"(?:!|/|\.|#|%|)"
+    if with_args:
+        return rf"(?i)^{prefix_part}{command}(?:\s+.+)?$"
+    return rf"(?i)^{prefix_part}{command}$"
 
 
 def register_handlers(client: TelegramClient):
