@@ -94,12 +94,13 @@ def unique_clean_aliases(key: str):
 
 
 def cmd_regex(command_key: str, with_args: bool = False) -> str:
-    # multiple command names (alias support)
     names = unique_clean_aliases(command_key)
     names_part = "|".join(re.escape(n) for n in names)
 
-    # multiple prefixes including empty
-    prefix_part = r"(?:!|/|\.|#|%|)"
+    # prefixes from list
+    pref_tokens = [re.escape(p) for p in PREFIXES if p != ""]
+    prefix_part = "(?:" + "|".join(pref_tokens) + "|)"  # includes empty prefix
+
     if with_args:
         return rf"(?i)^{prefix_part}(?:{names_part})(?:\s+.+)?$"
     return rf"(?i)^{prefix_part}(?:{names_part})$"
@@ -110,20 +111,18 @@ def parse_cmd(text: str):
     if not text:
         return "", []
 
-    matched_prefix = None
+    matched_prefix = ""
     for p in PREFIXES:
         if p and text.startswith(p):
             matched_prefix = p
             break
-    if matched_prefix is None:
-        matched_prefix = ""  # no prefix mode
 
     parts = text.split()
     if not parts:
         return "", []
 
     first = parts[0]
-    if matched_prefix and first.startswith(matched_prefix):
+    if matched_prefix:
         first = first[len(matched_prefix):]
 
     cmd = first.lower().strip()
