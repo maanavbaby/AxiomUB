@@ -549,7 +549,7 @@ def register_handlers(app):
                         f"{dmm['message']}\n\n"
                         f"<blockquote><b>⚠️ Warning {count}/5</b></blockquote>\n"
                         f"<i>Do not spam here.</i>",
-                        parse_mode="html",
+                        parse_mode="HTML",
                         disable_web_page_preview=True
                     )
             
@@ -565,7 +565,7 @@ def register_handlers(app):
             
                         await msg.reply(
                             "<b>You have been blocked permanently.</b>",
-                            parse_mode="html"
+                            parse_mode="HTML"
                         )
             
                     except Exception as e:
