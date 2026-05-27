@@ -8,7 +8,7 @@ import re
 from telethon import TelegramClient, events
 from telethon.sessions import StringSession
 from telethon.tl.functions.contacts import BlockRequest, UnblockRequest
-from telethon.tl.functions.channels import EditBannedRequest
+from telethon.tl.functions.channels import EditBannedRequest, DeleteMessagesRequest
 from telethon.tl.types import ChatBannedRights
 from telethon.errors import FloodWaitError
 
@@ -17,13 +17,13 @@ from config import API_ID, API_HASH, STRINGS
 logging.basicConfig(level=logging.ERROR)
 
 MENTION_STATUS = {}
-AWAY_SECONDS = 300
+AWAY_SECONDS = 30
 CONFIRM_DELAY = 1
 
 # keep "" last
 PREFIXES = ["!", "/", ".", "#", "%", ""]
 
-# command aliases: add your custom alias in the "" slot
+# command aliases: add your custom alias in second slot
 COMMAND_ALIASES = {
     "ping": ["ping", ""],
     "d_d": ["d_d", ""],
@@ -38,6 +38,9 @@ COMMAND_ALIASES = {
     "m_all": ["m_all", ""],
     "stm_all": ["stm_all", ""],
     "ban": ["ban", ""],
+    "approve": ["approve", ""],
+    "unapprove": ["unapprove", ""],
+    "del": ["del", ""],
 }
 
 BLOCKED_FILE = "blocked.json"
@@ -45,6 +48,7 @@ DMM_FILE = "dmm.json"
 ACTIVITY_FILE = "activity.json"
 GROUP_DELETE_FILE = "group_delete.json"
 WARNING_FILE = "warnings.json"
+APPROVED_FILE = "approved.json"
 
 clients = []
 
@@ -97,8 +101,7 @@ def cmd_regex(command_key: str, with_args: bool = False) -> str:
     names = unique_clean_aliases(command_key)
     names_part = "|".join(re.escape(n) for n in names)
 
-    # prefixes from list
-    pref_tokens = [re.escape(p) for p in PREFIXES if p = ""]
+    pref_tokens = [re.escape(p) for p in PREFIXES if p != ""]
     prefix_part = "(?:" + "|".join(pref_tokens) + "|)"  # includes empty prefix
 
     if with_args:
@@ -145,19 +148,16 @@ async def temp_reply(event, title: str, text: str, sec=CONFIRM_DELAY):
 
 async def get_target_user_id(event, args=None):
     args = args or []
-    # priority 1: UID in args
     if args:
         maybe = args[0].strip()
         if maybe.isdigit():
             return int(maybe)
 
-    # priority 2: replied user
     if event.is_reply:
         reply = await event.get_reply_message()
         if reply and reply.sender_id:
             return reply.sender_id
 
-    # priority 3: private chat target
     if event.is_private:
         return event.chat_id
 
@@ -174,6 +174,15 @@ def is_me_or_admin(participant):
     return "admin" in role_name or "creator" in role_name
 
 
+async def can_delete_everyone(client, chat_id, me_id):
+    try:
+        p = await client.get_permissions(chat_id, me_id)
+        role_name = p.participant.__class__.__name__.lower()
+        return ("creator" in role_name) or ("admin" in role_name)
+    except Exception:
+        return False
+
+
 def register_handlers(client: TelegramClient):
     @client.on(events.NewMessage(outgoing=True, pattern=cmd_regex("ping")))
     async def ping(event):
@@ -183,10 +192,7 @@ def register_handlers(client: TelegramClient):
         uptime = int(time.time() - get_last_seen())
 
         await msg.edit(
-            styled_box(
-                "PONG",
-                f"➤ Latency: {ms} ms\n➤ Uptime: {uptime}s"
-            )
+            styled_box("PONG", f"➤ Latency: {ms} ms\n➤ Uptime: {uptime}s")
         )
         await asyncio.sleep(CONFIRM_DELAY)
         try:
@@ -198,6 +204,59 @@ def register_handlers(client: TelegramClient):
         except Exception:
             pass
         update_activity()
+
+    # ---------------- delete command ----------------
+    @client.on(events.NewMessage(outgoing=True, pattern=cmd_regex("del")))
+    async def del_command(event):
+        try:
+            if not event.is_reply:
+                await temp_reply(event, "ERROR", "REPLY TO A MESSAGE", 2)
+                return
+
+            reply = await event.get_reply_message()
+            me = await client.get_me()
+
+            # DM: best effort for both side
+            if event.is_private:
+                try:
+                    await reply.delete(revoke=True)
+                except Exception:
+                    try:
+                        await reply.delete()
+                    except Exception:
+                        pass
+
+                try:
+                    await event.delete()
+                except Exception:
+                    pass
+                return
+
+            # GROUP/CHANNEL
+            can_everyone = await can_delete_everyone(client, event.chat_id, me.id)
+
+            if can_everyone:
+                # delete replied msg for all (admin privilege)
+                try:
+                    await client(DeleteMessagesRequest(
+                        id=[reply.id],
+                        revoke=True
+                    ))
+                except Exception:
+                    try:
+                        await reply.delete()
+                    except Exception:
+                        pass
+
+            # always delete command message itself
+            try:
+                await event.delete()
+            except Exception:
+                pass
+
+        except Exception as e:
+            print("del_command:", e)
+            await temp_reply(event, "ERROR", "DELETE FAILED", 2)
 
     # ---------------- DM disable / enable ----------------
     @client.on(events.NewMessage(outgoing=True, pattern=cmd_regex("d_d", with_args=True)))
@@ -217,9 +276,7 @@ def register_handlers(client: TelegramClient):
                 blocked.append(uid)
                 save_data(BLOCKED_FILE, blocked)
 
-            # FIX: immediate hard block
             await client(BlockRequest(uid))
-
             await temp_reply(event, "SUCCESS", f"DM DISABLED FOR {uid}")
         except Exception as e:
             print("dm_disable:", e)
@@ -247,9 +304,7 @@ def register_handlers(client: TelegramClient):
                 blocked.remove(uid)
                 save_data(BLOCKED_FILE, blocked)
 
-            # FIX: immediate hard unblock
             await client(UnblockRequest(uid))
-
             await temp_reply(event, "SUCCESS", f"DM ENABLED FOR {uid}")
         except Exception as e:
             print("dm_allow:", e)
@@ -317,6 +372,61 @@ def register_handlers(client: TelegramClient):
         except Exception:
             pass
 
+    # ---------------- approve / unapprove ----------------
+    @client.on(events.NewMessage(outgoing=True, pattern=cmd_regex("approve", with_args=True)))
+    async def approve_user(event):
+        try:
+            cmd, args = parse_cmd(event.raw_text)
+            if not is_command_match(cmd, "approve"):
+                return
+
+            uid = await get_target_user_id(event, args)
+            if not uid:
+                await temp_reply(event, "ERROR", "REPLY USER / USE DM / OR PASS UID", 2)
+                return
+
+            approved = load_data(APPROVED_FILE, [])
+            if uid not in approved:
+                approved.append(uid)
+                save_data(APPROVED_FILE, approved)
+
+            await temp_reply(event, "SUCCESS", f"APPROVED {uid}")
+        except Exception as e:
+            print("approve_user:", e)
+            await temp_reply(event, "ERROR", "APPROVE FAILED", 2)
+
+        try:
+            await event.delete()
+        except Exception:
+            pass
+
+    @client.on(events.NewMessage(outgoing=True, pattern=cmd_regex("unapprove", with_args=True)))
+    async def unapprove_user(event):
+        try:
+            cmd, args = parse_cmd(event.raw_text)
+            if not is_command_match(cmd, "unapprove"):
+                return
+
+            uid = await get_target_user_id(event, args)
+            if not uid:
+                await temp_reply(event, "ERROR", "REPLY USER / USE DM / OR PASS UID", 2)
+                return
+
+            approved = load_data(APPROVED_FILE, [])
+            if uid in approved:
+                approved.remove(uid)
+                save_data(APPROVED_FILE, approved)
+
+            await temp_reply(event, "SUCCESS", f"UNAPPROVED {uid}")
+        except Exception as e:
+            print("unapprove_user:", e)
+            await temp_reply(event, "ERROR", "UNAPPROVE FAILED", 2)
+
+        try:
+            await event.delete()
+        except Exception:
+            pass
+
     # ---------------- details ----------------
     @client.on(events.NewMessage(outgoing=True, pattern=cmd_regex("dtl", with_args=True)))
     async def details_cmd(event):
@@ -366,6 +476,7 @@ def register_handlers(client: TelegramClient):
                 return
 
             text = " ".join(args)
+            # HTML support (bold/underline/blockquote etc)
             save_data(DMM_FILE, {"message": text, "mode": "html"})
             await temp_reply(event, "SUCCESS", "DMM MESSAGE SAVED")
         except Exception as e:
@@ -508,7 +619,6 @@ def register_handlers(client: TelegramClient):
                 await temp_reply(event, "ERROR", "REPLY USER OR PASS UID", 2)
                 return
 
-            # optional: skip admin targets check
             try:
                 p = await client.get_permissions(event.chat_id, uid)
                 if is_me_or_admin(p.participant):
@@ -613,6 +723,12 @@ def register_handlers(client: TelegramClient):
             if not dmm.get("message"):
                 return
 
+            approved = load_data(APPROVED_FILE, [])
+            if user_id in approved:
+                # approved users get away reply only, no warning/block
+                await event.reply(dmm["message"], parse_mode="html")
+                return
+
             warnings = load_data(WARNING_FILE, {})
             warnings[str(user_id)] = warnings.get(str(user_id), 0) + 1
             count = warnings[str(user_id)]
@@ -620,14 +736,14 @@ def register_handlers(client: TelegramClient):
 
             reply_text = (
                 f"{dmm['message']}\n\n"
-                f"⚠️ Warning {count}/5\n"
-                f"Do not spam me."
+                f"<b>⚠️ Warning {count}/5</b>\n"
+                f"Do not spam here.."
             )
-            await event.reply(reply_text)
+            await event.reply(reply_text, parse_mode="html")
 
             if count >= 5:
                 await client(BlockRequest(user_id))
-                await event.reply("You are blocked.")
+                await event.reply("<b>You are blocked.</b>", parse_mode="html")
                 warnings.pop(str(user_id), None)
                 save_data(WARNING_FILE, warnings)
 
