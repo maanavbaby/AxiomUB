@@ -106,6 +106,19 @@ def register_handlers(app):
             await x.delete()
         except:
             pass
+ codex/find-and-fix-command-errors-dda9x2
+
+    def is_admin_status(status: str) -> bool:
+        return status in ["administrator", "creator", "owner"]
+
+    async def resolve_target_user(msg: Message):
+        if msg.chat.type.name == "PRIVATE":
+            return msg.chat.id
+        if msg.reply_to_message and msg.reply_to_message.from_user:
+            return msg.reply_to_message.from_user.id
+        return None
+
+ main
 
     # =========================
     # PING
@@ -146,6 +159,10 @@ def register_handlers(app):
     async def dm_disable(_, msg: Message):
 
         try:
+ codex/find-and-fix-command-errors-dda9x2
+            target_user_id = await resolve_target_user(msg)
+
+
             target_user_id = None
 
             if msg.chat.type.name == "PRIVATE":
@@ -153,6 +170,7 @@ def register_handlers(app):
             elif msg.reply_to_message and msg.reply_to_message.from_user:
                 target_user_id = msg.reply_to_message.from_user.id
 
+ main
             if not target_user_id:
                 await send_error(msg, "DM ME USE DIRECTLY OR REPLY USER IN GROUP")
                 return
@@ -164,10 +182,43 @@ def register_handlers(app):
 
             save_data(BLOCKED_FILE, blocked)
 
+ codex/find-and-fix-command-errors-dda9x2
+            await send_confirm(msg, f"DM DISABLED FOR {target_user_id}")
+
+        except Exception as e:
+            print(e)
+
+        try:
+            await msg.delete()
+        except:
+            pass
+
+        update_activity()
+
+    @app.on_message(filters.me & filters.regex(r"(?i)^!d_a$"))
+    async def dm_allow(_, msg: Message):
+
+        try:
+            target_user_id = await resolve_target_user(msg)
+
+            if not target_user_id:
+                await send_error(msg, "DM ME USE DIRECTLY OR REPLY USER IN GROUP")
+                return
+
+            blocked = load_data(BLOCKED_FILE, [])
+
+            if target_user_id in blocked:
+                blocked.remove(target_user_id)
+
+            save_data(BLOCKED_FILE, blocked)
+
+            await send_confirm(msg, f"DM ENABLED FOR {target_user_id}")
+
  codex/find-and-fix-command-errors-94mqpv
             await send_confirm(msg, f"DM DISABLED FOR {target_user_id}")
 
             await send_confirm(msg, "DM DISABLED SUCCESSFULLY")
+ main
  main
 
         except Exception as e:
@@ -183,8 +234,17 @@ def register_handlers(app):
  codex/find-and-fix-command-errors-94mqpv
 
     # =========================
-    # DM ALLOW
+    # BLOCK / UNBLOCK USER
     # =========================
+
+ codex/find-and-fix-command-errors-dda9x2
+    @app.on_message(filters.me & filters.regex(r"(?i)^!blck$"))
+    async def hard_block_user(client, msg: Message):
+        try:
+            target_user_id = await resolve_target_user(msg)
+
+            if not target_user_id:
+                await send_error(msg, "USE IN DM OR REPLY USER IN GROUP")
 
  main
     @app.on_message(filters.me & filters.regex(r"(?i)^!d_a$"))
@@ -200,19 +260,53 @@ def register_handlers(app):
 
             if not target_user_id:
                 await send_error(msg, "DM ME USE DIRECTLY OR REPLY USER IN GROUP")
+ main
                 return
 
             blocked = load_data(BLOCKED_FILE, [])
+            if target_user_id not in blocked:
+                blocked.append(target_user_id)
+                save_data(BLOCKED_FILE, blocked)
+
+ codex/find-and-fix-command-errors-dda9x2
+            await client.block_user(target_user_id)
+            await send_confirm(msg, f"BLOCKED {target_user_id}")
 
             if target_user_id in blocked:
                 blocked.remove(target_user_id)
+ main
 
-            save_data(BLOCKED_FILE, blocked)
+        except Exception as e:
+            print(e)
+
+ codex/find-and-fix-command-errors-dda9x2
+        try:
+            await msg.delete()
+        except:
+            pass
+
+    @app.on_message(filters.me & filters.regex(r"(?i)^!unblck$"))
+    async def hard_unblock_user(client, msg: Message):
+        try:
+            target_user_id = await resolve_target_user(msg)
+
+            if not target_user_id:
+                await send_error(msg, "USE IN DM OR REPLY USER IN GROUP")
+                return
+
+            blocked = load_data(BLOCKED_FILE, [])
+            if target_user_id in blocked:
+                blocked.remove(target_user_id)
+                save_data(BLOCKED_FILE, blocked)
+
+            await client.unblock_user(target_user_id)
+            await send_confirm(msg, f"UNBLOCKED {target_user_id}")
 
  codex/find-and-fix-command-errors-94mqpv
             await send_confirm(msg, f"DM ENABLED FOR {target_user_id}")
 
             await send_confirm(msg, "DM ENABLED SUCCESSFULLY")
+ main
  main
 
         except Exception as e:
@@ -222,8 +316,6 @@ def register_handlers(app):
             await msg.delete()
         except:
             pass
-
-        update_activity()
 
     # =========================
     # SET DM MESSAGE
@@ -309,10 +401,14 @@ def register_handlers(app):
     # =========================
 
     @app.on_message(filters.me & filters.regex(r"(?i)^!del_m$"))
+ codex/find-and-fix-command-errors-dda9x2
+    async def enable_group_delete(client, msg: Message):
+
  codex/find-and-fix-command-errors-94mqpv
     async def enable_group_delete(client, msg: Message):
 
     async def enable_group_delete(_, msg: Message):
+ main
  main
 
         try:
@@ -321,16 +417,26 @@ def register_handlers(app):
                 await send_error(msg, "USE THIS COMMAND IN GROUP")
                 return
 
+ codex/find-and-fix-command-errors-dda9x2
+            me = await client.get_me()
+            my_member = await client.get_chat_member(msg.chat.id, me.id)
+            if not is_admin_status(my_member.status):
+                await send_error(msg, "I MUST BE GROUP ADMIN/OWNER")
+
  codex/find-and-fix-command-errors-94mqpv
             me = await client.get_me()
             my_member = await client.get_chat_member(msg.chat.id, me.id)
             if my_member.status not in ["administrator", "owner"]:
                 await send_error(msg, "I MUST BE GROUP ADMIN")
+ main
                 return
 
             if not msg.reply_to_message or not msg.reply_to_message.from_user:
 
+ codex/find-and-fix-command-errors-dda9x2
 
+
+ main
  main
                 await send_error(msg, "REPLY TO A USER MESSAGE")
 
@@ -349,10 +455,14 @@ def register_handlers(app):
 
             save_data(GROUP_DELETE_FILE, data)
 
+ codex/find-and-fix-command-errors-dda9x2
+            await send_confirm(msg, f"AUTO DELETE ENABLED FOR {user_id}")
+
  codex/find-and-fix-command-errors-94mqpv
             await send_confirm(msg, f"AUTO DELETE ENABLED FOR {user_id}")
 
             await send_confirm(msg, "AUTO DELETE ENABLED")
+ main
  main
 
         except Exception as e:
@@ -363,6 +473,8 @@ def register_handlers(app):
         except:
             pass
 
+ codex/find-and-fix-command-errors-dda9x2
+
  codex/find-and-fix-command-errors-94mqpv
 
     # =========================
@@ -370,15 +482,20 @@ def register_handlers(app):
     # =========================
 
  main
+ main
     @app.on_message(filters.me & filters.regex(r"(?i)^!stdel_m$"))
     async def disable_group_delete(_, msg: Message):
 
         try:
 
+ codex/find-and-fix-command-errors-dda9x2
+            if not msg.reply_to_message or not msg.reply_to_message.from_user:
+
  codex/find-and-fix-command-errors-94mqpv
             if not msg.reply_to_message or not msg.reply_to_message.from_user:
 
             if not msg.reply_to_message:
+ main
  main
 
                 await send_error(msg, "REPLY TO A USER MESSAGE")
@@ -392,6 +509,14 @@ def register_handlers(app):
 
             if chat_id in data and user_id in data[chat_id]:
                 data[chat_id].remove(user_id)
+ codex/find-and-fix-command-errors-dda9x2
+                if not data[chat_id]:
+                    data.pop(chat_id, None)
+
+            save_data(GROUP_DELETE_FILE, data)
+
+            await send_confirm(msg, f"AUTO DELETE DISABLED FOR {user_id}")
+
 
             save_data(GROUP_DELETE_FILE, data)
 
@@ -399,6 +524,7 @@ def register_handlers(app):
             await send_confirm(msg, f"AUTO DELETE DISABLED FOR {user_id}")
 
             await send_confirm(msg, "AUTO DELETE DISABLED")
+ main
  main
 
         except Exception as e:
@@ -464,6 +590,8 @@ def register_handlers(app):
 
                 return
 
+ codex/find-and-fix-command-errors-dda9x2
+
  codex/find-and-fix-command-errors-94mqpv
             me = await client.get_me()
             my_member = await client.get_chat_member(msg.chat.id, me.id)
@@ -472,6 +600,7 @@ def register_handlers(app):
                 return
 
 
+ main
  main
             message_text = " ".join(args)
 
@@ -497,12 +626,17 @@ def register_handlers(app):
                         chat_id,
                         f"[{user.first_name}](tg://user?id={user.id}) {message_text}"
                     )
+ codex/find-and-fix-command-errors-dda9x2
+                    await asyncio.sleep(2)
+
+
  codex/find-and-fix-command-errors-94mqpv
 
 
  main
                     await asyncio.sleep(2)
 
+ main
                 except Exception as e:
                     print(f"Mention Error: {e}")
                     continue
@@ -515,10 +649,14 @@ def register_handlers(app):
     # =========================
 
     @app.on_message(filters.me & filters.regex(r"(?i)^!stm_all$"))
+ codex/find-and-fix-command-errors-dda9x2
+    async def stop_mention_all(_, msg: Message):
+
  codex/find-and-fix-command-errors-94mqpv
     async def stop_mention_all(_, msg: Message):
 
     async def stop_mention_all(client, msg: Message):
+ main
  main
 
         global MENTION_STATUS
@@ -527,9 +665,12 @@ def register_handlers(app):
 
             chat_id = msg.chat.id
             MENTION_STATUS[chat_id] = False
+ codex/find-and-fix-command-errors-dda9x2
+
  codex/find-and-fix-command-errors-94mqpv
 
 
+ main
  main
             await send_confirm(msg, "MENTION ALL STOPPED")
 
@@ -541,7 +682,10 @@ def register_handlers(app):
         except:
             pass
 
+ codex/find-and-fix-command-errors-dda9x2
+
  codex/find-and-fix-command-errors-94mqpv
+ main
     # =========================
 
  main
