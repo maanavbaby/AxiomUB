@@ -4,40 +4,17 @@ import time
 import asyncio
 import logging
 
-from pyrogram import Client, filters, idle, utils as pyro_utils
-from pyrogram.types import Message
+from telethon import TelegramClient, events
+from telethon.sessions import StringSession
+from telethon.tl.functions.contacts import BlockRequest, UnblockRequest
+from telethon.errors import FloodWaitError
 
 from config import API_ID, API_HASH, STRINGS
 
+logging.basicConfig(level=logging.ERROR)
+
 MENTION_STATUS = {}
 AWAY_SECONDS = 30
-
-logging.basicConfig(level=logging.ERROR)
-logging.getLogger("pyrogram").setLevel(logging.CRITICAL)
-
-# Fix old Pyrogram peer-id bounds that can crash update handling on newer supergroups/channels.
-try:
-    pyro_utils.MIN_CHANNEL_ID = -1009999999999999
-    pyro_utils.MAX_CHANNEL_ID = -1000000000000
-    pyro_utils.MIN_CHAT_ID = -999999999999999
-except Exception:
-    pass
-
-APPS = []
-
-for num, string in enumerate(STRINGS, start=1):
-
-    client = Client(
-        f"userbot{num}",
-        api_id=API_ID,
-        api_hash=API_HASH,
-        session_string=string,
-        no_updates=False,
-        sleep_threshold=30,
-        workers=8
-    )
-
-    APPS.append(client)
 
 BLOCKED_FILE = "blocked.json"
 DMM_FILE = "dmm.json"
@@ -45,863 +22,428 @@ ACTIVITY_FILE = "activity.json"
 GROUP_DELETE_FILE = "group_delete.json"
 WARNING_FILE = "warnings.json"
 
+clients = []
 
-def load_data(file, default):
 
-    if not os.path.exists(file):
-
-        with open(file, "w") as f:
+def load_data(file_name, default):
+    if not os.path.exists(file_name):
+        with open(file_name, "w", encoding="utf-8") as f:
             json.dump(default, f)
-
-    with open(file, "r") as f:
+    with open(file_name, "r", encoding="utf-8") as f:
         return json.load(f)
 
 
-def save_data(file, data):
-
-    with open(file, "w") as f:
+def save_data(file_name, data):
+    with open(file_name, "w", encoding="utf-8") as f:
         json.dump(data, f)
 
 
 def update_activity():
-
-    save_data(
-        ACTIVITY_FILE,
-        {
-            "last_seen": int(time.time())
-        }
-    )
+    save_data(ACTIVITY_FILE, {"last_seen": int(time.time())})
 
 
 def get_last_seen():
-
-    data = load_data(
-        ACTIVITY_FILE,
-        {
-            "last_seen": int(time.time())
-        }
-    )
-
-    return data["last_seen"]
+    data = load_data(ACTIVITY_FILE, {"last_seen": int(time.time())})
+    return data.get("last_seen", int(time.time()))
 
 
-def register_handlers(app):
-    def get_command_text(msg: Message) -> str:
-        if not msg.text:
-            return ""
-        return msg.text.strip()
-
-    def parse_command_args(msg: Message):
-        text = get_command_text(msg)
-        if not text.startswith("!"):
-            return "", []
-        parts = text.split()
-        command = parts[0][1:].lower()
-        return command, parts[1:]
-
-    async def send_confirm(msg: Message, text: str, delay: int = 2):
-        x = await msg.reply(f"`{text}`")
-        await asyncio.sleep(delay)
-        try:
-            await x.delete()
-        except:
-            pass
-
-    async def send_error(msg: Message, text: str, delay: int = 3):
-        x = await msg.reply(f"`ERROR: {text}`")
-        await asyncio.sleep(delay)
-        try:
-            await x.delete()
-        except:
-            pass
- codex/find-and-fix-command-errors-yvb8ce
-
- codex/find-and-fix-command-errors-dda9x2
- main
-
-    def is_admin_status(status: str) -> bool:
-        return status in ["administrator", "creator", "owner"]
-
-    async def resolve_target_user(msg: Message):
-        if msg.chat.type.name == "PRIVATE":
-            return msg.chat.id
-        if msg.reply_to_message and msg.reply_to_message.from_user:
-            return msg.reply_to_message.from_user.id
-        return None
- codex/find-and-fix-command-errors-yvb8ce
+def parse_cmd(text: str):
+    text = (text or "").strip()
+    if not text.startswith("!"):
+        return "", []
+    parts = text.split()
+    cmd = parts[0][1:].lower()
+    args = parts[1:]
+    return cmd, args
 
 
- main
- main
+async def temp_reply(event, text, sec=2):
+    m = await event.reply(f"`{text}`")
+    await asyncio.sleep(sec)
+    try:
+        await m.delete()
+    except Exception:
+        pass
 
-    # =========================
-    # PING
-    # =========================
 
-    @app.on_message(filters.me & filters.regex(r"(?i)^!ping$"))
-    async def ping(_, msg: Message):
+async def get_target_user_id(event):
+    if event.is_private:
+        return event.chat_id
+    if event.is_reply:
+        reply = await event.get_reply_message()
+        if reply and reply.sender_id:
+            return reply.sender_id
+    return None
 
+
+def register_handlers(client: TelegramClient):
+    @client.on(events.NewMessage(outgoing=True, pattern=r"(?i)^!ping$"))
+    async def ping(event):
         start = time.time()
-
-        x = await msg.reply("`Pinging...`")
-
-        end = time.time()
-
-        ms = round((end - start) * 1000)
-
-        await x.edit(f"`Pong! {ms}ms`")
-
+        msg = await event.reply("`Pinging...`")
+        ms = round((time.time() - start) * 1000)
+        await msg.edit(f"`Pong! {ms}ms`")
         await asyncio.sleep(2)
-
-        try:
-            await x.delete()
-        except:
-            pass
-
         try:
             await msg.delete()
-        except:
+        except Exception:
             pass
-
+        try:
+            await event.delete()
+        except Exception:
+            pass
         update_activity()
 
-    # =========================
-    # DM DISABLE / ENABLE
-    # =========================
-
-    @app.on_message(filters.me & filters.regex(r"(?i)^!d_d$"))
-    async def dm_disable(_, msg: Message):
-
+    # ---------------- DM disable / enable ----------------
+    @client.on(events.NewMessage(outgoing=True, pattern=r"(?i)^!d_d$"))
+    async def dm_disable(event):
         try:
- codex/find-and-fix-command-errors-yvb8ce
-
- codex/find-and-fix-command-errors-dda9x2
-            target_user_id = await resolve_target_user(msg)
-
-
-            target_user_id = None
-
-            if msg.chat.type.name == "PRIVATE":
-                target_user_id = msg.chat.id
-            elif msg.reply_to_message and msg.reply_to_message.from_user:
-                target_user_id = msg.reply_to_message.from_user.id
-
- main
-            if not target_user_id:
-                await send_error(msg, "DM ME USE DIRECTLY OR REPLY USER IN GROUP")
+            uid = await get_target_user_id(event)
+            if not uid:
+                await temp_reply(event, "REPLY USER IN GROUP OR USE IN DM", 3)
                 return
 
             blocked = load_data(BLOCKED_FILE, [])
-
-            if target_user_id not in blocked:
-                blocked.append(target_user_id)
-
-            save_data(BLOCKED_FILE, blocked)
-
- codex/find-and-fix-command-errors-dda9x2
-            await send_confirm(msg, f"DM DISABLED FOR {target_user_id}")
-
-        except Exception as e:
-            print(e)
-
-        try:
-            await msg.delete()
-        except:
-            pass
-
-        update_activity()
-
-    @app.on_message(filters.me & filters.regex(r"(?i)^!d_a$"))
-    async def dm_allow(_, msg: Message):
-
-        try:
- main
-            target_user_id = await resolve_target_user(msg)
-
-            if not target_user_id:
-                await send_error(msg, "DM ME USE DIRECTLY OR REPLY USER IN GROUP")
-                return
-
-            blocked = load_data(BLOCKED_FILE, [])
-
- codex/find-and-fix-command-errors-yvb8ce
-            if target_user_id not in blocked:
-                blocked.append(target_user_id)
-
-            save_data(BLOCKED_FILE, blocked)
-
-            await send_confirm(msg, f"DM DISABLED FOR {target_user_id}")
-
-        except Exception as e:
-            print(e)
-
-        try:
-            await msg.delete()
-        except:
-            pass
-
-        update_activity()
-
-    @app.on_message(filters.me & filters.regex(r"(?i)^!d_a$"))
-    async def dm_allow(_, msg: Message):
-
-        try:
-            target_user_id = await resolve_target_user(msg)
-
-            if not target_user_id:
-                await send_error(msg, "DM ME USE DIRECTLY OR REPLY USER IN GROUP")
-                return
-
-            blocked = load_data(BLOCKED_FILE, [])
-
-            if target_user_id in blocked:
-                blocked.remove(target_user_id)
-
-            save_data(BLOCKED_FILE, blocked)
-
-            await send_confirm(msg, f"DM ENABLED FOR {target_user_id}")
-
-            if target_user_id in blocked:
-                blocked.remove(target_user_id)
-
-            save_data(BLOCKED_FILE, blocked)
-
-            await send_confirm(msg, f"DM ENABLED FOR {target_user_id}")
-
- codex/find-and-fix-command-errors-94mqpv
-            await send_confirm(msg, f"DM DISABLED FOR {target_user_id}")
-
-            await send_confirm(msg, "DM DISABLED SUCCESSFULLY")
- main
- main
- main
-
-        except Exception as e:
-            print(e)
-
-        try:
-            await msg.delete()
-        except:
-            pass
-
-        update_activity()
-
- codex/find-and-fix-command-errors-94mqpv
-
-    # =========================
-    # BLOCK / UNBLOCK USER
-    # =========================
-
- codex/find-and-fix-command-errors-yvb8ce
-    @app.on_message(filters.me & filters.regex(r"(?i)^!blck$"))
-    async def hard_block_user(client, msg: Message):
-        try:
-            target_user_id = await resolve_target_user(msg)
-
-            if not target_user_id:
-                await send_error(msg, "USE IN DM OR REPLY USER IN GROUP")
-
- codex/find-and-fix-command-errors-dda9x2
-    @app.on_message(filters.me & filters.regex(r"(?i)^!blck$"))
-    async def hard_block_user(client, msg: Message):
-        try:
-            target_user_id = await resolve_target_user(msg)
-
-            if not target_user_id:
-                await send_error(msg, "USE IN DM OR REPLY USER IN GROUP")
-
- main
-    @app.on_message(filters.me & filters.regex(r"(?i)^!d_a$"))
-    async def dm_allow(_, msg: Message):
-
-        try:
-            target_user_id = None
-
-            if msg.chat.type.name == "PRIVATE":
-                target_user_id = msg.chat.id
-            elif msg.reply_to_message and msg.reply_to_message.from_user:
-                target_user_id = msg.reply_to_message.from_user.id
-
-            if not target_user_id:
-                await send_error(msg, "DM ME USE DIRECTLY OR REPLY USER IN GROUP")
- main
- main
-                return
-
-            blocked = load_data(BLOCKED_FILE, [])
-            if target_user_id not in blocked:
-                blocked.append(target_user_id)
+            if uid not in blocked:
+                blocked.append(uid)
                 save_data(BLOCKED_FILE, blocked)
 
- codex/find-and-fix-command-errors-yvb8ce
-            await client.block_user(target_user_id)
-            await send_confirm(msg, f"BLOCKED {target_user_id}")
-
+            await temp_reply(event, f"DM DISABLED FOR {uid}")
         except Exception as e:
-            print(e)
+            print("dm_disable:", e)
 
-
- codex/find-and-fix-command-errors-dda9x2
-            await client.block_user(target_user_id)
-            await send_confirm(msg, f"BLOCKED {target_user_id}")
-
-            if target_user_id in blocked:
-                blocked.remove(target_user_id)
- main
-
-        except Exception as e:
-            print(e)
-
- codex/find-and-fix-command-errors-dda9x2
- main
         try:
-            await msg.delete()
-        except:
+            await event.delete()
+        except Exception:
             pass
 
-    @app.on_message(filters.me & filters.regex(r"(?i)^!unblck$"))
-    async def hard_unblock_user(client, msg: Message):
+    @client.on(events.NewMessage(outgoing=True, pattern=r"(?i)^!d_a$"))
+    async def dm_allow(event):
         try:
-            target_user_id = await resolve_target_user(msg)
-
-            if not target_user_id:
-                await send_error(msg, "USE IN DM OR REPLY USER IN GROUP")
+            uid = await get_target_user_id(event)
+            if not uid:
+                await temp_reply(event, "REPLY USER IN GROUP OR USE IN DM", 3)
                 return
 
             blocked = load_data(BLOCKED_FILE, [])
-            if target_user_id in blocked:
-                blocked.remove(target_user_id)
+            if uid in blocked:
+                blocked.remove(uid)
                 save_data(BLOCKED_FILE, blocked)
 
-            await client.unblock_user(target_user_id)
-            await send_confirm(msg, f"UNBLOCKED {target_user_id}")
- codex/find-and-fix-command-errors-yvb8ce
-
-
- codex/find-and-fix-command-errors-94mqpv
-            await send_confirm(msg, f"DM ENABLED FOR {target_user_id}")
-
-            await send_confirm(msg, "DM ENABLED SUCCESSFULLY")
- main
- main
- main
-
+            await temp_reply(event, f"DM ENABLED FOR {uid}")
         except Exception as e:
-            print(e)
+            print("dm_allow:", e)
 
         try:
-            await msg.delete()
-        except:
+            await event.delete()
+        except Exception:
             pass
 
-    # =========================
-    # SET DM MESSAGE
-    # =========================
-
-    @app.on_message(filters.me & filters.regex(r"(?i)^!set_dmm(\s+.+)?$"))
-    async def set_dmm(_, msg: Message):
-
+    # ---------------- Hard block / unblock ----------------
+    @client.on(events.NewMessage(outgoing=True, pattern=r"(?i)^!blck$"))
+    async def hard_block(event):
         try:
-
-            command, args = parse_command_args(msg)
-            if command != "set_dmm":
+            uid = await get_target_user_id(event)
+            if not uid:
+                await temp_reply(event, "REPLY USER IN GROUP OR USE IN DM", 3)
                 return
 
-            if len(args) < 1:
+            blocked = load_data(BLOCKED_FILE, [])
+            if uid not in blocked:
+                blocked.append(uid)
+                save_data(BLOCKED_FILE, blocked)
 
-                await send_error(msg, "USE: !set_dmm <message>")
-                await msg.delete()
+            await client(BlockRequest(uid))
+            await temp_reply(event, f"BLOCKED {uid}")
+        except Exception as e:
+            print("hard_block:", e)
 
+        try:
+            await event.delete()
+        except Exception:
+            pass
+
+    @client.on(events.NewMessage(outgoing=True, pattern=r"(?i)^!unblck$"))
+    async def hard_unblock(event):
+        try:
+            uid = await get_target_user_id(event)
+            if not uid:
+                await temp_reply(event, "REPLY USER IN GROUP OR USE IN DM", 3)
+                return
+
+            blocked = load_data(BLOCKED_FILE, [])
+            if uid in blocked:
+                blocked.remove(uid)
+                save_data(BLOCKED_FILE, blocked)
+
+            await client(UnblockRequest(uid))
+            await temp_reply(event, f"UNBLOCKED {uid}")
+        except Exception as e:
+            print("hard_unblock:", e)
+
+        try:
+            await event.delete()
+        except Exception:
+            pass
+
+    # ---------------- set / del dmm ----------------
+    @client.on(events.NewMessage(outgoing=True, pattern=r"(?i)^!set_dmm(?:\s+.+)?$"))
+    async def set_dmm(event):
+        try:
+            cmd, args = parse_cmd(event.raw_text)
+            if cmd != "set_dmm" or not args:
+                await temp_reply(event, "USE: !set_dmm <message>", 3)
+                try:
+                    await event.delete()
+                except Exception:
+                    pass
                 return
 
             text = " ".join(args)
-
-            save_data(
-                DMM_FILE,
-                {
-                    "message": text,
-                    "mode": "html"
-                }
-            )
-
-            await send_confirm(msg, "DMM MESSAGE SAVED")
-
+            save_data(DMM_FILE, {"message": text, "mode": "html"})
+            await temp_reply(event, "DMM MESSAGE SAVED")
         except Exception as e:
-            print(e)
+            print("set_dmm:", e)
 
         try:
-            await msg.delete()
-        except:
+            await event.delete()
+        except Exception:
             pass
 
-    # =========================
-    # DELETE DM MESSAGE
-    # =========================
-
-    @app.on_message(filters.me & filters.regex(r"(?i)^!del_dmm$"))
-    async def del_dmm(_, msg: Message):
-
+    @client.on(events.NewMessage(outgoing=True, pattern=r"(?i)^!del_dmm$"))
+    async def del_dmm(event):
         try:
-
-            save_data(
-                DMM_FILE,
-                {
-                    "message": ""
-                }
-            )
-
-            await send_confirm(msg, "DMM MESSAGE DELETED")
-
+            save_data(DMM_FILE, {"message": "", "mode": "html"})
+            await temp_reply(event, "DMM MESSAGE DELETED")
         except Exception as e:
-            print(e)
+            print("del_dmm:", e)
 
         try:
-            await msg.delete()
-        except:
+            await event.delete()
+        except Exception:
             pass
 
-    # =========================
-    # ACTIVITY TRACKER
-    # =========================
-
-    @app.on_message(filters.me & filters.text)
-    async def activity(_, msg):
-
-        text = get_command_text(msg).lower()
+    # ---------------- Activity tracker ----------------
+    @client.on(events.NewMessage(outgoing=True))
+    async def activity_tracker(event):
+        text = (event.raw_text or "").lower().strip()
         if text.startswith("!set_dmm"):
             return
-
         update_activity()
 
-    # =========================
-    # GROUP AUTO DELETE ENABLE / DISABLE
-    # =========================
-
-    @app.on_message(filters.me & filters.regex(r"(?i)^!del_m$"))
- codex/find-and-fix-command-errors-yvb8ce
-    async def enable_group_delete(client, msg: Message):
-
- codex/find-and-fix-command-errors-dda9x2
-    async def enable_group_delete(client, msg: Message):
-
- codex/find-and-fix-command-errors-94mqpv
-    async def enable_group_delete(client, msg: Message):
-
-    async def enable_group_delete(_, msg: Message):
- main
- main
- main
-
+    # ---------------- Group auto delete ----------------
+    @client.on(events.NewMessage(outgoing=True, pattern=r"(?i)^!del_m$"))
+    async def enable_del(event):
         try:
-
-            if msg.chat.type.name not in ["GROUP", "SUPERGROUP"]:
-                await send_error(msg, "USE THIS COMMAND IN GROUP")
+            if not event.is_group:
+                await temp_reply(event, "USE THIS IN GROUP", 3)
                 return
 
- codex/find-and-fix-command-errors-yvb8ce
-
- codex/find-and-fix-command-errors-dda9x2
- main
-            me = await client.get_me()
-            my_member = await client.get_chat_member(msg.chat.id, me.id)
-            if not is_admin_status(my_member.status):
-                await send_error(msg, "I MUST BE GROUP ADMIN/OWNER")
- codex/find-and-fix-command-errors-yvb8ce
+            if not event.is_reply:
+                await temp_reply(event, "REPLY TO USER MESSAGE", 3)
                 return
 
-            if not msg.reply_to_message or not msg.reply_to_message.from_user:
-
-
-
- codex/find-and-fix-command-errors-94mqpv
-            me = await client.get_me()
-            my_member = await client.get_chat_member(msg.chat.id, me.id)
-            if my_member.status not in ["administrator", "owner"]:
-                await send_error(msg, "I MUST BE GROUP ADMIN")
- main
+            reply = await event.get_reply_message()
+            if not reply or not reply.sender_id:
+                await temp_reply(event, "INVALID REPLY", 3)
                 return
 
-            if not msg.reply_to_message or not msg.reply_to_message.from_user:
-
- codex/find-and-fix-command-errors-dda9x2
-
-
- main
- main
- main
-                await send_error(msg, "REPLY TO A USER MESSAGE")
-
-                return
-
-            user_id = msg.reply_to_message.from_user.id
-            chat_id = str(msg.chat.id)
+            user_id = reply.sender_id
+            chat_id = str(event.chat_id)
 
             data = load_data(GROUP_DELETE_FILE, {})
-
             if chat_id not in data:
                 data[chat_id] = []
-
             if user_id not in data[chat_id]:
                 data[chat_id].append(user_id)
-
             save_data(GROUP_DELETE_FILE, data)
 
- codex/find-and-fix-command-errors-yvb8ce
-            await send_confirm(msg, f"AUTO DELETE ENABLED FOR {user_id}")
-
- codex/find-and-fix-command-errors-dda9x2
-            await send_confirm(msg, f"AUTO DELETE ENABLED FOR {user_id}")
-
- codex/find-and-fix-command-errors-94mqpv
-            await send_confirm(msg, f"AUTO DELETE ENABLED FOR {user_id}")
-
-            await send_confirm(msg, "AUTO DELETE ENABLED")
- main
- main
- main
-
+            await temp_reply(event, f"AUTO DELETE ENABLED FOR {user_id}")
         except Exception as e:
-            print(e)
+            print("enable_del:", e)
 
         try:
-            await msg.delete()
-        except:
+            await event.delete()
+        except Exception:
             pass
 
- codex/find-and-fix-command-errors-yvb8ce
-
- codex/find-and-fix-command-errors-dda9x2
-
- codex/find-and-fix-command-errors-94mqpv
-
-    # =========================
-    # GROUP AUTO DELETE DISABLE
-    # =========================
-
- main
- main
- main
-    @app.on_message(filters.me & filters.regex(r"(?i)^!stdel_m$"))
-    async def disable_group_delete(_, msg: Message):
-
+    @client.on(events.NewMessage(outgoing=True, pattern=r"(?i)^!stdel_m$"))
+    async def disable_del(event):
         try:
-
- codex/find-and-fix-command-errors-yvb8ce
-            if not msg.reply_to_message or not msg.reply_to_message.from_user:
-
- codex/find-and-fix-command-errors-dda9x2
-            if not msg.reply_to_message or not msg.reply_to_message.from_user:
-
- codex/find-and-fix-command-errors-94mqpv
-            if not msg.reply_to_message or not msg.reply_to_message.from_user:
-
-            if not msg.reply_to_message:
- main
- main
- main
-
-                await send_error(msg, "REPLY TO A USER MESSAGE")
-
+            if not event.is_group:
+                await temp_reply(event, "USE THIS IN GROUP", 3)
                 return
 
-            user_id = msg.reply_to_message.from_user.id
-            chat_id = str(msg.chat.id)
+            if not event.is_reply:
+                await temp_reply(event, "REPLY TO USER MESSAGE", 3)
+                return
+
+            reply = await event.get_reply_message()
+            if not reply or not reply.sender_id:
+                await temp_reply(event, "INVALID REPLY", 3)
+                return
+
+            user_id = reply.sender_id
+            chat_id = str(event.chat_id)
 
             data = load_data(GROUP_DELETE_FILE, {})
-
             if chat_id in data and user_id in data[chat_id]:
                 data[chat_id].remove(user_id)
- codex/find-and-fix-command-errors-yvb8ce
-
- codex/find-and-fix-command-errors-dda9x2
- main
                 if not data[chat_id]:
                     data.pop(chat_id, None)
-
             save_data(GROUP_DELETE_FILE, data)
 
-            await send_confirm(msg, f"AUTO DELETE DISABLED FOR {user_id}")
- codex/find-and-fix-command-errors-yvb8ce
-
-
-
-            save_data(GROUP_DELETE_FILE, data)
-
- codex/find-and-fix-command-errors-94mqpv
-            await send_confirm(msg, f"AUTO DELETE DISABLED FOR {user_id}")
-
-            await send_confirm(msg, "AUTO DELETE DISABLED")
- main
- main
- main
-
+            await temp_reply(event, f"AUTO DELETE DISABLED FOR {user_id}")
         except Exception as e:
-            print(e)
+            print("disable_del:", e)
 
         try:
-            await msg.delete()
-        except:
+            await event.delete()
+        except Exception:
             pass
 
-    # =========================
-    # GROUP DELETE HANDLER
-    # =========================
-
-    @app.on_message(filters.group & ~filters.me)
-    async def group_delete_handler(client, msg: Message):
-
+    @client.on(events.NewMessage(incoming=True))
+    async def group_delete_handler(event):
         try:
-
-            if not msg.from_user:
+            if not event.is_group:
+                return
+            if not event.sender_id:
                 return
 
-            user_id = msg.from_user.id
-            chat_id = str(msg.chat.id)
-
             data = load_data(GROUP_DELETE_FILE, {})
-
+            chat_id = str(event.chat_id)
             if chat_id not in data:
                 return
 
-            if user_id in data[chat_id]:
+            if event.sender_id in data[chat_id]:
                 try:
-                    await msg.delete()
+                    await event.delete()
                 except Exception:
                     pass
-
         except Exception as e:
-            print(e)
+            print("group_delete_handler:", e)
 
-    # =========================
-    # MENTION ALL
-    # =========================
-
-    @app.on_message(filters.me & filters.regex(r"(?i)^!m_all(\s+.+)?$"))
-    async def mention_all(client, msg: Message):
-
-        global MENTION_STATUS
-
+    # ---------------- Mention all ----------------
+    @client.on(events.NewMessage(outgoing=True, pattern=r"(?i)^!m_all(?:\s+.+)?$"))
+    async def mention_all(event):
         try:
-
-            if msg.chat.type.name not in ["GROUP", "SUPERGROUP"]:
-                await send_error(msg, "USE THIS COMMAND IN GROUP")
+            if not event.is_group:
+                await temp_reply(event, "USE THIS IN GROUP", 3)
                 return
 
-            command, args = parse_command_args(msg)
-            if command != "m_all":
+            cmd, args = parse_cmd(event.raw_text)
+            if cmd != "m_all" or not args:
+                await temp_reply(event, "USE: !m_all <text>", 3)
+                try:
+                    await event.delete()
+                except Exception:
+                    pass
                 return
 
-            if len(args) < 1:
-
-                await send_error(msg, "USE: !m_all <text>")
-                await msg.delete()
-
-                return
-
- codex/find-and-fix-command-errors-yvb8ce
-
- codex/find-and-fix-command-errors-dda9x2
-
- codex/find-and-fix-command-errors-94mqpv
-            me = await client.get_me()
-            my_member = await client.get_chat_member(msg.chat.id, me.id)
-            if my_member.status not in ["administrator", "owner"]:
-                await send_error(msg, "I MUST BE GROUP ADMIN")
-                return
-
-
- main
- main
- main
-            message_text = " ".join(args)
-
-            chat_id = msg.chat.id
-
+            text = " ".join(args)
+            chat_id = event.chat_id
             MENTION_STATUS[chat_id] = True
 
-            await send_confirm(msg, "MENTION ALL STARTED")
-            await msg.delete()
+            await temp_reply(event, "MENTION ALL STARTED")
+            try:
+                await event.delete()
+            except Exception:
+                pass
 
-            async for member in client.get_chat_members(chat_id):
-
+            async for user in client.iter_participants(chat_id):
                 if not MENTION_STATUS.get(chat_id):
                     break
-
-                user = member.user
-
-                if user.is_bot or user.is_deleted:
+                if user.bot or user.deleted:
                     continue
 
                 try:
-                    await client.send_message(
-                        chat_id,
-                        f"[{user.first_name}](tg://user?id={user.id}) {message_text}"
-                    )
- codex/find-and-fix-command-errors-yvb8ce
-                    await asyncio.sleep(2)
-
-
- codex/find-and-fix-command-errors-dda9x2
-                    await asyncio.sleep(2)
-
-
- codex/find-and-fix-command-errors-94mqpv
-
-
- main
-                    await asyncio.sleep(2)
-
- main
- main
+                    mention = f"[{user.first_name}](tg://user?id={user.id}) {text}"
+                    await client.send_message(chat_id, mention, parse_mode="md")
+                    await asyncio.sleep(1.8)
+                except FloodWaitError as fw:
+                    await asyncio.sleep(fw.seconds + 1)
                 except Exception as e:
-                    print(f"Mention Error: {e}")
+                    print("mention_all send:", e)
                     continue
 
         except Exception as e:
-            print(f"Main Error: {e}")
+            print("mention_all:", e)
 
-    # =========================
-    # STOP MENTION ALL
-    # =========================
-
-    @app.on_message(filters.me & filters.regex(r"(?i)^!stm_all$"))
- codex/find-and-fix-command-errors-yvb8ce
-    async def stop_mention_all(_, msg: Message):
-
- codex/find-and-fix-command-errors-dda9x2
-    async def stop_mention_all(_, msg: Message):
-
- codex/find-and-fix-command-errors-94mqpv
-    async def stop_mention_all(_, msg: Message):
-
-    async def stop_mention_all(client, msg: Message):
- main
- main
- main
-
-        global MENTION_STATUS
-
+    @client.on(events.NewMessage(outgoing=True, pattern=r"(?i)^!stm_all$"))
+    async def stop_mention_all(event):
         try:
-
-            chat_id = msg.chat.id
+            chat_id = event.chat_id
             MENTION_STATUS[chat_id] = False
- codex/find-and-fix-command-errors-yvb8ce
-
- codex/find-and-fix-command-errors-dda9x2
-
- codex/find-and-fix-command-errors-94mqpv
-
-
- main
- main
- main
-            await send_confirm(msg, "MENTION ALL STOPPED")
-
+            await temp_reply(event, "MENTION ALL STOPPED")
         except Exception as e:
-            print(e)
+            print("stop_mention_all:", e)
 
         try:
-            await msg.delete()
-        except:
+            await event.delete()
+        except Exception:
             pass
 
- codex/find-and-fix-command-errors-yvb8ce
-
- codex/find-and-fix-command-errors-dda9x2
-
- codex/find-and-fix-command-errors-94mqpv
- main
- main
-    # =========================
-
- main
-    # PRIVATE DM HANDLER
-    # =========================
-
-    @app.on_message(filters.private & ~filters.me & filters.text)
-    async def dm_handler(client, msg: Message):
-
+    # ---------------- Incoming DM handler ----------------
+    @client.on(events.NewMessage(incoming=True))
+    async def dm_handler(event):
         try:
-
-            if not msg.from_user:
+            if not event.is_private:
+                return
+            if not event.sender_id:
                 return
 
-            user_id = msg.from_user.id
-
-            if msg.from_user.is_bot:
-                return
+            user_id = event.sender_id
 
             blocked = load_data(BLOCKED_FILE, [])
-
             if user_id in blocked:
                 return
 
             last_seen = get_last_seen()
-
             if int(time.time()) - last_seen < AWAY_SECONDS:
                 return
 
             dmm = load_data(DMM_FILE, {"message": "", "mode": "html"})
-
             if not dmm.get("message"):
                 return
 
             warnings = load_data(WARNING_FILE, {})
-
-            if str(user_id) not in warnings:
-                warnings[str(user_id)] = 0
-
-            warnings[str(user_id)] += 1
+            warnings[str(user_id)] = warnings.get(str(user_id), 0) + 1
             count = warnings[str(user_id)]
-
             save_data(WARNING_FILE, warnings)
 
             reply_text = (
                 f"{dmm['message']}\n\n"
-                f"<b>⚠️ Warning {count}/5</b>\n"
+                f"⚠️ Warning {count}/5\n"
                 f"Do not spam me."
             )
-
-            await msg.reply(reply_text, parse_mode="HTML")
+            await event.reply(reply_text)
 
             if count >= 5:
-
-                await client.block_user(user_id)
-
-                await msg.reply("<b>You are blocked.</b>", parse_mode="HTML")
-
+                await client(BlockRequest(user_id))
+                await event.reply("You are blocked.")
                 warnings.pop(str(user_id), None)
                 save_data(WARNING_FILE, warnings)
 
         except Exception as e:
-            print(f"DM Handler Error: {e}")
+            print("dm_handler:", e)
 
 
 async def main():
+    for i, s in enumerate(STRINGS, start=1):
+        c = TelegramClient(StringSession(s), API_ID, API_HASH)
+        clients.append(c)
 
-    for client in APPS:
-
-        register_handlers(client)
-
-        await client.start()
-
-        me = await client.get_me()
-
+    for c in clients:
+        await c.start()
+        me = await c.get_me()
         print(f"Started -> {me.first_name}")
+        register_handlers(c)
 
     update_activity()
 
-    await idle()
-
-    for client in APPS:
-
-        await client.stop()
+    print("All clients running...")
+    await asyncio.gather(*(c.run_until_disconnected() for c in clients))
 
 
 if __name__ == "__main__":
-
-    try:
-        asyncio.get_event_loop().run_until_complete(main())
-
-    except Exception as e:
-        print(e)
+    asyncio.run(main())
