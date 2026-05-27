@@ -682,6 +682,10 @@ def register_handlers(client: TelegramClient):
 
             blocked = load_data(BLOCKED_FILE, [])
             if uid in blocked:
+                try:
+                    await event.delete()
+                except Exception:
+                    pass
                 return
 
             if int(time.time()) - get_last_seen() < AWAY_SECONDS:
@@ -704,7 +708,7 @@ def register_handlers(client: TelegramClient):
             txt = (
                 f"<blockquote><b>{dmm['message']}</b>\n\n"
                 f"<b>⚠️ Warning {count}/5</b>\n"
-                f"<b>Do not spam here baby..!<b></blockquote>"
+                f"<b>Do not spam here baby..!</b></blockquote>"
             )
             await event.reply(txt, parse_mode="html")
 
