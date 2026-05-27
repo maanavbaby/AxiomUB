@@ -34,6 +34,7 @@ BLOCKED_FILE = "blocked.json"
 DMM_FILE = "dmm.json"
 ACTIVITY_FILE = "activity.json"
 GROUP_DELETE_FILE = "group_delete.json"
+WARNING_FILE = "warnings.json"
 
 
 def load_data(file, default):
@@ -207,7 +208,8 @@ def register_handlers(app):
             save_data(
                 DMM_FILE,
                 {
-                    "message": text
+                    "message": text,
+                    "mode": "html"
                 }
             )
 
@@ -514,32 +516,64 @@ def register_handlers(app):
                 return
 
             last_seen = get_last_seen()
-
+            
             if int(time.time()) - last_seen > 300:
-
+            
                 dmm = load_data(
                     DMM_FILE,
                     {
-                        "message": ""
+                        "message": "",
+                        "mode": "html"
                     }
                 )
-
-                if dmm["message"]:
-
+            
+                warnings = load_data(WARNING_FILE, {})
+            
+                # manual blocked users
+                if user_id in blocked:
+                    return
+            
+                # warning count
+                if str(user_id) not in warnings:
+                    warnings[str(user_id)] = 0
+            
+                warnings[str(user_id)] += 1
+            
+                count = warnings[str(user_id)]
+            
+                save_data(WARNING_FILE, warnings)
+            
+                try:
+            
+                    await msg.reply(
+                        f"{dmm['message']}\n\n"
+                        f"<blockquote><b>⚠️ Warning {count}/5</b></blockquote>\n"
+                        f"<i>Do not spam here.</i>",
+                        parse_mode="html",
+                        disable_web_page_preview=True
+                    )
+            
+                except Exception as e:
+                    print(e)
+            
+                # auto block
+                if count >= 5:
+            
                     try:
-
+            
+                        await app.block_user(user_id)
+            
                         await msg.reply(
-                            dmm["message"],
-                            disable_web_page_preview=False,
+                            "<b>You have been blocked permanently.</b>",
                             parse_mode="html"
                         )
-
+            
                     except Exception as e:
                         print(e)
-
-        except Exception as e:
-            print(e)
-
+            
+                    warnings.pop(str(user_id))
+            
+                    save_data(WARNING_FILE, warnings)
 
 async def main():
 
