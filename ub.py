@@ -702,9 +702,9 @@ def register_handlers(client: TelegramClient):
             save_data(WARNING_FILE, warnings)
 
             txt = (
-                f"{dmm['message']}\n\n"
+                f"<blockquote><b>{dmm['message']}</b>\n\n"
                 f"<b>⚠️ Warning {count}/5</b>\n"
-                f"Do not spam me."
+                f"<b>Do not spam here baby..!<b></blockquote>"
             )
             await event.reply(txt, parse_mode="html")
 
