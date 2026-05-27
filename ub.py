@@ -98,7 +98,7 @@ def cmd_regex(command_key: str, with_args: bool = False) -> str:
     names_part = "|".join(re.escape(n) for n in names)
 
     # prefixes from list
-    pref_tokens = [re.escape(p) for p in PREFIXES if p != ""]
+    pref_tokens = [re.escape(p) for p in PREFIXES if p = ""]
     prefix_part = "(?:" + "|".join(pref_tokens) + "|)"  # includes empty prefix
 
     if with_args:
