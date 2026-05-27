@@ -26,18 +26,18 @@ PREFIXES = ["!", "/", ".", "#", "%", ""]
 # command aliases: add your custom alias in the "" slot
 COMMAND_ALIASES = {
     "ping": ["ping", ""],
-    "d_d": ["d_d", "chup"],
-    "d_a": ["d_a", "bhok"],
-    "blck": ["blck", "fuck"],
+    "d_d": ["d_d", ""],
+    "d_a": ["d_a", ""],
+    "blck": ["blck", ""],
     "unblck": ["unblck", ""],
-    "dtl": ["dtl", "inf"],
+    "dtl": ["dtl", ""],
     "set_dmm": ["set_dmm", ""],
     "del_dmm": ["del_dmm", ""],
-    "del_m": ["del_m", "chupp"],
+    "del_m": ["del_m", ""],
     "stdel_m": ["stdel_m", ""],
-    "m_all": ["m_all", "alll"],
-    "stm_all": ["stm_all", "ruk"],
-    "ban": ["ban", "fuckk"],
+    "m_all": ["m_all", ""],
+    "stm_all": ["stm_all", ""],
+    "ban": ["ban", ""],
 }
 
 BLOCKED_FILE = "blocked.json"
@@ -170,6 +170,11 @@ def is_set_dmm_command(text: str) -> bool:
     return is_command_match(cmd, "set_dmm")
 
 
+def is_me_or_admin(participant):
+    role_name = participant.__class__.__name__.lower()
+    return "admin" in role_name or "creator" in role_name
+
+
 def register_handlers(client: TelegramClient):
     @client.on(events.NewMessage(outgoing=True, pattern=cmd_regex("ping")))
     async def ping(event):
@@ -213,6 +218,9 @@ def register_handlers(client: TelegramClient):
                 blocked.append(uid)
                 save_data(BLOCKED_FILE, blocked)
 
+            # FIX: immediate hard block
+            await client(BlockRequest(uid))
+
             await temp_reply(event, "SUCCESS", f"DM DISABLED FOR {uid}")
         except Exception as e:
             print("dm_disable:", e)
@@ -239,6 +247,9 @@ def register_handlers(client: TelegramClient):
             if uid in blocked:
                 blocked.remove(uid)
                 save_data(BLOCKED_FILE, blocked)
+
+            # FIX: immediate hard unblock
+            await client(UnblockRequest(uid))
 
             await temp_reply(event, "SUCCESS", f"DM ENABLED FOR {uid}")
         except Exception as e:
@@ -498,10 +509,16 @@ def register_handlers(client: TelegramClient):
                 await temp_reply(event, "ERROR", "REPLY USER OR PASS UID", 2)
                 return
 
-            rights = ChatBannedRights(
-                until_date=None,
-                view_messages=True
-            )
+            # optional: skip admin targets check
+            try:
+                p = await client.get_permissions(event.chat_id, uid)
+                if is_me_or_admin(p.participant):
+                    await temp_reply(event, "ERROR", "TARGET IS ADMIN/OWNER", 2)
+                    return
+            except Exception:
+                pass
+
+            rights = ChatBannedRights(until_date=None, view_messages=True)
             await client(EditBannedRequest(event.chat_id, uid, rights))
             await temp_reply(event, "SUCCESS", f"BANNED {uid}")
         except Exception as e:
