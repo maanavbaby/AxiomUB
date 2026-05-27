@@ -17,7 +17,7 @@ from config import API_ID, API_HASH, STRINGS
 logging.basicConfig(level=logging.ERROR)
 
 MENTION_STATUS = {}
-AWAY_SECONDS = 30
+AWAY_SECONDS = 300
 CONFIRM_DELAY = 1
 
 # keep "" last
