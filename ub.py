@@ -496,87 +496,79 @@ def register_handlers(app):
         & filters.text
     )
     async def dm_handler(client, msg: Message):
-    
+
         try:
-    
+
             if not msg.from_user:
                 return
-    
+
             user_id = msg.from_user.id
-    
-            # ignore bots
+
             if msg.from_user.is_bot:
                 return
-    
+
             blocked = load_data(BLOCKED_FILE, [])
-    
-            # manual blocked users
+
+            # manually blocked users
             if user_id in blocked:
-    
-                try:
-                    await msg.delete()
-                except:
-                    pass
-    
                 return
-    
+
             # away check
             last_seen = get_last_seen()
-    
+
             if int(time.time()) - last_seen < 30:
                 return
-    
+
             dmm = load_data(
                 DMM_FILE,
                 {
-                    "message": "",
-                    "mode": "HTML"
+                    "message": ""
                 }
             )
-    
+
             # no message set
             if not dmm.get("message"):
                 return
-    
+
             warnings = load_data(WARNING_FILE, {})
-    
+
             if str(user_id) not in warnings:
                 warnings[str(user_id)] = 0
-    
+
             warnings[str(user_id)] += 1
-    
+
             count = warnings[str(user_id)]
-    
+
             save_data(WARNING_FILE, warnings)
-    
+
             reply_text = (
                 f"{dmm['message']}\n\n"
-                f"<blockquote><b>⚠️ Warning {count}/5</b></blockquote>\n"
-                f"<i>Do not spam me.</i>"
+                f"<b>⚠️ Warning {count}/5</b>\n"
+                f"Do not spam me."
             )
-    
+
             await msg.reply(
                 reply_text,
-                parse_mode="HTML",
-                disable_web_page_preview=True
+                parse_mode="HTML"
             )
-    
+
             # auto block after 5 warnings
             if count >= 5:
-    
+
                 await client.block_user(user_id)
-    
+
                 await msg.reply(
-                    "<b>You are blocked permanently.</b>",
+                    "<b>You are blocked.</b>",
                     parse_mode="HTML"
                 )
-    
+
                 warnings.pop(str(user_id))
-    
+
                 save_data(WARNING_FILE, warnings)
-    
+
         except Exception as e:
             print(f"DM Handler Error: {e}")
+            
 async def main():
 
     for client in APPS:
