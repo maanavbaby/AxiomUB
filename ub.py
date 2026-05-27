@@ -139,24 +139,36 @@ def register_handlers(app):
         update_activity()
 
     # =========================
-    # DM DISABLE
+    # DM DISABLE / ENABLE
     # =========================
 
     @app.on_message(filters.me & filters.regex(r"(?i)^!d_d$"))
     async def dm_disable(_, msg: Message):
 
         try:
+            target_user_id = None
 
-            user_id = msg.chat.id
+            if msg.chat.type.name == "PRIVATE":
+                target_user_id = msg.chat.id
+            elif msg.reply_to_message and msg.reply_to_message.from_user:
+                target_user_id = msg.reply_to_message.from_user.id
+
+            if not target_user_id:
+                await send_error(msg, "DM ME USE DIRECTLY OR REPLY USER IN GROUP")
+                return
 
             blocked = load_data(BLOCKED_FILE, [])
 
-            if user_id not in blocked:
-                blocked.append(user_id)
+            if target_user_id not in blocked:
+                blocked.append(target_user_id)
 
             save_data(BLOCKED_FILE, blocked)
 
+ codex/find-and-fix-command-errors-94mqpv
+            await send_confirm(msg, f"DM DISABLED FOR {target_user_id}")
+
             await send_confirm(msg, "DM DISABLED SUCCESSFULLY")
+ main
 
         except Exception as e:
             print(e)
@@ -168,25 +180,40 @@ def register_handlers(app):
 
         update_activity()
 
+ codex/find-and-fix-command-errors-94mqpv
+
     # =========================
     # DM ALLOW
     # =========================
 
+ main
     @app.on_message(filters.me & filters.regex(r"(?i)^!d_a$"))
     async def dm_allow(_, msg: Message):
 
         try:
+            target_user_id = None
 
-            user_id = msg.chat.id
+            if msg.chat.type.name == "PRIVATE":
+                target_user_id = msg.chat.id
+            elif msg.reply_to_message and msg.reply_to_message.from_user:
+                target_user_id = msg.reply_to_message.from_user.id
+
+            if not target_user_id:
+                await send_error(msg, "DM ME USE DIRECTLY OR REPLY USER IN GROUP")
+                return
 
             blocked = load_data(BLOCKED_FILE, [])
 
-            if user_id in blocked:
-                blocked.remove(user_id)
+            if target_user_id in blocked:
+                blocked.remove(target_user_id)
 
             save_data(BLOCKED_FILE, blocked)
 
+ codex/find-and-fix-command-errors-94mqpv
+            await send_confirm(msg, f"DM ENABLED FOR {target_user_id}")
+
             await send_confirm(msg, "DM ENABLED SUCCESSFULLY")
+ main
 
         except Exception as e:
             print(e)
@@ -278,16 +305,33 @@ def register_handlers(app):
         update_activity()
 
     # =========================
-    # GROUP AUTO DELETE ENABLE
+    # GROUP AUTO DELETE ENABLE / DISABLE
     # =========================
 
     @app.on_message(filters.me & filters.regex(r"(?i)^!del_m$"))
+ codex/find-and-fix-command-errors-94mqpv
+    async def enable_group_delete(client, msg: Message):
+
     async def enable_group_delete(_, msg: Message):
+ main
 
         try:
 
-            if not msg.reply_to_message:
+            if msg.chat.type.name not in ["GROUP", "SUPERGROUP"]:
+                await send_error(msg, "USE THIS COMMAND IN GROUP")
+                return
 
+ codex/find-and-fix-command-errors-94mqpv
+            me = await client.get_me()
+            my_member = await client.get_chat_member(msg.chat.id, me.id)
+            if my_member.status not in ["administrator", "owner"]:
+                await send_error(msg, "I MUST BE GROUP ADMIN")
+                return
+
+            if not msg.reply_to_message or not msg.reply_to_message.from_user:
+
+
+ main
                 await send_error(msg, "REPLY TO A USER MESSAGE")
 
                 return
@@ -305,7 +349,11 @@ def register_handlers(app):
 
             save_data(GROUP_DELETE_FILE, data)
 
+ codex/find-and-fix-command-errors-94mqpv
+            await send_confirm(msg, f"AUTO DELETE ENABLED FOR {user_id}")
+
             await send_confirm(msg, "AUTO DELETE ENABLED")
+ main
 
         except Exception as e:
             print(e)
@@ -315,16 +363,23 @@ def register_handlers(app):
         except:
             pass
 
+ codex/find-and-fix-command-errors-94mqpv
+
     # =========================
     # GROUP AUTO DELETE DISABLE
     # =========================
 
+ main
     @app.on_message(filters.me & filters.regex(r"(?i)^!stdel_m$"))
     async def disable_group_delete(_, msg: Message):
 
         try:
 
+ codex/find-and-fix-command-errors-94mqpv
+            if not msg.reply_to_message or not msg.reply_to_message.from_user:
+
             if not msg.reply_to_message:
+ main
 
                 await send_error(msg, "REPLY TO A USER MESSAGE")
 
@@ -335,14 +390,16 @@ def register_handlers(app):
 
             data = load_data(GROUP_DELETE_FILE, {})
 
-            if chat_id in data:
-
-                if user_id in data[chat_id]:
-                    data[chat_id].remove(user_id)
+            if chat_id in data and user_id in data[chat_id]:
+                data[chat_id].remove(user_id)
 
             save_data(GROUP_DELETE_FILE, data)
 
+ codex/find-and-fix-command-errors-94mqpv
+            await send_confirm(msg, f"AUTO DELETE DISABLED FOR {user_id}")
+
             await send_confirm(msg, "AUTO DELETE DISABLED")
+ main
 
         except Exception as e:
             print(e)
@@ -357,7 +414,7 @@ def register_handlers(app):
     # =========================
 
     @app.on_message(filters.group & ~filters.me)
-    async def group_delete_handler(_, msg: Message):
+    async def group_delete_handler(client, msg: Message):
 
         try:
 
@@ -373,10 +430,9 @@ def register_handlers(app):
                 return
 
             if user_id in data[chat_id]:
-
                 try:
                     await msg.delete()
-                except:
+                except Exception:
                     pass
 
         except Exception as e:
@@ -394,6 +450,7 @@ def register_handlers(app):
         try:
 
             if msg.chat.type.name not in ["GROUP", "SUPERGROUP"]:
+                await send_error(msg, "USE THIS COMMAND IN GROUP")
                 return
 
             command, args = parse_command_args(msg)
@@ -407,6 +464,15 @@ def register_handlers(app):
 
                 return
 
+ codex/find-and-fix-command-errors-94mqpv
+            me = await client.get_me()
+            my_member = await client.get_chat_member(msg.chat.id, me.id)
+            if my_member.status not in ["administrator", "owner"]:
+                await send_error(msg, "I MUST BE GROUP ADMIN")
+                return
+
+
+ main
             message_text = " ".join(args)
 
             chat_id = msg.chat.id
@@ -423,29 +489,25 @@ def register_handlers(app):
 
                 user = member.user
 
-                if user.is_bot:
-                    continue
-
-                if user.is_deleted:
+                if user.is_bot or user.is_deleted:
                     continue
 
                 try:
-
                     await client.send_message(
                         chat_id,
                         f"[{user.first_name}](tg://user?id={user.id}) {message_text}"
                     )
+ codex/find-and-fix-command-errors-94mqpv
 
+
+ main
                     await asyncio.sleep(2)
 
                 except Exception as e:
-
                     print(f"Mention Error: {e}")
-
                     continue
 
         except Exception as e:
-
             print(f"Main Error: {e}")
 
     # =========================
@@ -453,16 +515,22 @@ def register_handlers(app):
     # =========================
 
     @app.on_message(filters.me & filters.regex(r"(?i)^!stm_all$"))
+ codex/find-and-fix-command-errors-94mqpv
+    async def stop_mention_all(_, msg: Message):
+
     async def stop_mention_all(client, msg: Message):
+ main
 
         global MENTION_STATUS
 
         try:
 
             chat_id = msg.chat.id
-
             MENTION_STATUS[chat_id] = False
+ codex/find-and-fix-command-errors-94mqpv
 
+
+ main
             await send_confirm(msg, "MENTION ALL STOPPED")
 
         except Exception as e:
@@ -473,14 +541,14 @@ def register_handlers(app):
         except:
             pass
 
+ codex/find-and-fix-command-errors-94mqpv
+    # =========================
+
+ main
     # PRIVATE DM HANDLER
     # =========================
 
-    @app.on_message(
-        filters.private
-        & ~filters.me
-        & filters.text
-    )
+    @app.on_message(filters.private & ~filters.me & filters.text)
     async def dm_handler(client, msg: Message):
 
         try:
@@ -495,24 +563,16 @@ def register_handlers(app):
 
             blocked = load_data(BLOCKED_FILE, [])
 
-            # manually blocked users
             if user_id in blocked:
                 return
 
-            # away check
             last_seen = get_last_seen()
 
             if int(time.time()) - last_seen < AWAY_SECONDS:
                 return
 
-            dmm = load_data(
-                DMM_FILE,
-                {
-                    "message": ""
-                }
-            )
+            dmm = load_data(DMM_FILE, {"message": "", "mode": "html"})
 
-            # no message set
             if not dmm.get("message"):
                 return
 
@@ -522,7 +582,6 @@ def register_handlers(app):
                 warnings[str(user_id)] = 0
 
             warnings[str(user_id)] += 1
-
             count = warnings[str(user_id)]
 
             save_data(WARNING_FILE, warnings)
@@ -533,28 +592,21 @@ def register_handlers(app):
                 f"Do not spam me."
             )
 
-            await msg.reply(
-                reply_text,
-                parse_mode="HTML"
-            )
+            await msg.reply(reply_text, parse_mode="HTML")
 
-            # auto block after 5 warnings
             if count >= 5:
 
                 await client.block_user(user_id)
 
-                await msg.reply(
-                    "<b>You are blocked.</b>",
-                    parse_mode="HTML"
-                )
+                await msg.reply("<b>You are blocked.</b>", parse_mode="HTML")
 
-                warnings.pop(str(user_id))
-
+                warnings.pop(str(user_id), None)
                 save_data(WARNING_FILE, warnings)
 
         except Exception as e:
             print(f"DM Handler Error: {e}")
-            
+
+
 async def main():
 
     for client in APPS:
