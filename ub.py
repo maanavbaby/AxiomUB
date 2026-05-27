@@ -517,7 +517,7 @@ def register_handlers(app):
 
             last_seen = get_last_seen()
             
-            if int(time.time()) - last_seen > 300:
+            if int(time.time()) - last_seen > 30:
             
                 dmm = load_data(
                     DMM_FILE,
