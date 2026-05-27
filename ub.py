@@ -15,7 +15,7 @@ logging.basicConfig(level=logging.ERROR)
 
 MENTION_STATUS = {}
 AWAY_SECONDS = 30
-PREFIXES = ["!", "", "/", ".", "#", "%"]
+PREFIXES = ["!", "/", ".", "#", "%", ""]  # keep "" last
 
 BLOCKED_FILE = "blocked.json"
 DMM_FILE = "dmm.json"
@@ -48,12 +48,39 @@ def get_last_seen():
     return data.get("last_seen", int(time.time()))
 
 
+def cmd_regex(command: str, with_args: bool = False) -> str:
+    # supports ! / . # % and empty prefix
+    prefix_part = r"(?:!|/|\.|#|%|)"
+    if with_args:
+        return rf"(?i)^{prefix_part}{command}(?:\s+.+)?$"
+    return rf"(?i)^{prefix_part}{command}$"
+
+
 def parse_cmd(text: str):
     text = (text or "").strip()
-    if not text.startswith("!"):
+    if not text:
         return "", []
+
+    matched_prefix = None
+    for p in PREFIXES:
+        if p and text.startswith(p):
+            matched_prefix = p
+            break
+        if p == "":
+            matched_prefix = ""
+
+    if matched_prefix is None:
+        return "", []
+
     parts = text.split()
-    cmd = parts[0][1:].lower()
+    if not parts:
+        return "", []
+
+    first = parts[0]
+    if matched_prefix and first.startswith(matched_prefix):
+        first = first[len(matched_prefix):]
+
+    cmd = first.lower()
     args = parts[1:]
     return cmd, args
 
@@ -77,15 +104,18 @@ async def get_target_user_id(event):
     return None
 
 
-def cmd_regex(command: str, with_args: bool = False) -> str:
-    prefix_part = r"(?:!|/|\.|#|%|)"
-    if with_args:
-        return rf"(?i)^{prefix_part}{command}(?:\s+.+)?$"
-    return rf"(?i)^{prefix_part}{command}$"
+def is_set_dmm_command(text: str) -> bool:
+    t = (text or "").strip().lower()
+    if not t:
+        return False
+    for p in PREFIXES:
+        if t.startswith(f"{p}set_dmm"):
+            return True
+    return False
 
 
 def register_handlers(client: TelegramClient):
-    @client.on(events.NewMessage(outgoing=True, pattern=r"(?i)^!ping$"))
+    @client.on(events.NewMessage(outgoing=True, pattern=cmd_regex("ping")))
     async def ping(event):
         start = time.time()
         msg = await event.reply("`Pinging...`")
@@ -103,7 +133,7 @@ def register_handlers(client: TelegramClient):
         update_activity()
 
     # ---------------- DM disable / enable ----------------
-    @client.on(events.NewMessage(outgoing=True, pattern=r"(?i)^!d_d$"))
+    @client.on(events.NewMessage(outgoing=True, pattern=cmd_regex("d_d")))
     async def dm_disable(event):
         try:
             uid = await get_target_user_id(event)
@@ -125,7 +155,7 @@ def register_handlers(client: TelegramClient):
         except Exception:
             pass
 
-    @client.on(events.NewMessage(outgoing=True, pattern=r"(?i)^!d_a$"))
+    @client.on(events.NewMessage(outgoing=True, pattern=cmd_regex("d_a")))
     async def dm_allow(event):
         try:
             uid = await get_target_user_id(event)
@@ -148,7 +178,7 @@ def register_handlers(client: TelegramClient):
             pass
 
     # ---------------- Hard block / unblock ----------------
-    @client.on(events.NewMessage(outgoing=True, pattern=r"(?i)^!blck$"))
+    @client.on(events.NewMessage(outgoing=True, pattern=cmd_regex("blck")))
     async def hard_block(event):
         try:
             uid = await get_target_user_id(event)
@@ -171,7 +201,7 @@ def register_handlers(client: TelegramClient):
         except Exception:
             pass
 
-    @client.on(events.NewMessage(outgoing=True, pattern=r"(?i)^!unblck$"))
+    @client.on(events.NewMessage(outgoing=True, pattern=cmd_regex("unblck")))
     async def hard_unblock(event):
         try:
             uid = await get_target_user_id(event)
@@ -195,12 +225,12 @@ def register_handlers(client: TelegramClient):
             pass
 
     # ---------------- set / del dmm ----------------
-    @client.on(events.NewMessage(outgoing=True, pattern=r"(?i)^!set_dmm(?:\s+.+)?$"))
+    @client.on(events.NewMessage(outgoing=True, pattern=cmd_regex("set_dmm", with_args=True)))
     async def set_dmm(event):
         try:
             cmd, args = parse_cmd(event.raw_text)
             if cmd != "set_dmm" or not args:
-                await temp_reply(event, "USE: !set_dmm <message>", 3)
+                await temp_reply(event, "USE: set_dmm <message>", 3)
                 try:
                     await event.delete()
                 except Exception:
@@ -218,7 +248,7 @@ def register_handlers(client: TelegramClient):
         except Exception:
             pass
 
-    @client.on(events.NewMessage(outgoing=True, pattern=r"(?i)^!del_dmm$"))
+    @client.on(events.NewMessage(outgoing=True, pattern=cmd_regex("del_dmm")))
     async def del_dmm(event):
         try:
             save_data(DMM_FILE, {"message": "", "mode": "html"})
@@ -234,13 +264,13 @@ def register_handlers(client: TelegramClient):
     # ---------------- Activity tracker ----------------
     @client.on(events.NewMessage(outgoing=True))
     async def activity_tracker(event):
-        text = (event.raw_text or "").lower().strip()
-        if text.startswith("!set_dmm"):
+        text = (event.raw_text or "").strip()
+        if is_set_dmm_command(text):
             return
         update_activity()
 
     # ---------------- Group auto delete ----------------
-    @client.on(events.NewMessage(outgoing=True, pattern=r"(?i)^!del_m$"))
+    @client.on(events.NewMessage(outgoing=True, pattern=cmd_regex("del_m")))
     async def enable_del(event):
         try:
             if not event.is_group:
@@ -275,7 +305,7 @@ def register_handlers(client: TelegramClient):
         except Exception:
             pass
 
-    @client.on(events.NewMessage(outgoing=True, pattern=r"(?i)^!stdel_m$"))
+    @client.on(events.NewMessage(outgoing=True, pattern=cmd_regex("stdel_m")))
     async def disable_del(event):
         try:
             if not event.is_group:
@@ -332,7 +362,7 @@ def register_handlers(client: TelegramClient):
             print("group_delete_handler:", e)
 
     # ---------------- Mention all ----------------
-    @client.on(events.NewMessage(outgoing=True, pattern=r"(?i)^!m_all(?:\s+.+)?$"))
+    @client.on(events.NewMessage(outgoing=True, pattern=cmd_regex("m_all", with_args=True)))
     async def mention_all(event):
         try:
             if not event.is_group:
@@ -341,7 +371,7 @@ def register_handlers(client: TelegramClient):
 
             cmd, args = parse_cmd(event.raw_text)
             if cmd != "m_all" or not args:
-                await temp_reply(event, "USE: !m_all <text>", 3)
+                await temp_reply(event, "USE: m_all <text>", 3)
                 try:
                     await event.delete()
                 except Exception:
@@ -377,7 +407,7 @@ def register_handlers(client: TelegramClient):
         except Exception as e:
             print("mention_all:", e)
 
-    @client.on(events.NewMessage(outgoing=True, pattern=r"(?i)^!stm_all$"))
+    @client.on(events.NewMessage(outgoing=True, pattern=cmd_regex("stm_all")))
     async def stop_mention_all(event):
         try:
             chat_id = event.chat_id
