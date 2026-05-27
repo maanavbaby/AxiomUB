@@ -1,1 +1,1 @@
-worker: python ub.py
+worker: python uv.py
