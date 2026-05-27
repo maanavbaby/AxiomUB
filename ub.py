@@ -486,6 +486,14 @@ def register_handlers(app):
         except:
             pass
 
+
+    @app.on_message(filters.private & ~filters.me)
+    async def test_reply(client, msg):
+    
+        if not msg.from_user:
+            return
+    
+        await msg.reply("WORKING")
     # =========================
     # PRIVATE DM HANDLER
     # =========================
