@@ -323,7 +323,7 @@ def register_handlers(client: TelegramClient):
                 arr.append(uid)
                 save_data(BLOCKED_FILE, arr)
 
-            await client(BlockRequest(uid))
+            await client(DeleteMessagesRequest(uid))
             await temp_reply(event, "SUCCESS", f"DM DISABLED FOR {uid}")
         except Exception as e:
             print("dm_disable:", e)
