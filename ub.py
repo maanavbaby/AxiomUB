@@ -11,6 +11,7 @@ from telethon.errors import FloodWaitError
 from telethon.tl.functions.contacts import BlockRequest, UnblockRequest
 from telethon.tl.functions.channels import EditBannedRequest
 from telethon.tl.types import ChatBannedRights
+from raid_features import register_raid_handlers
 
 from config import API_ID, API_HASH, STRINGS
 
@@ -222,6 +223,13 @@ def register_handlers(client: TelegramClient):
         sender_id = event.sender_id
         my_uid = await get_my_uid()
         return sender_id == my_uid or sender_id == OWNER_UID
+
+        register_raid_handlers(
+        client=client,
+        is_authorized_controller=is_authorized_controller,
+        temp_reply=temp_reply,
+        get_target_user_id=get_target_user_id,
+    )
 
     # =========================
     # CMD LIST
