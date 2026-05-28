@@ -51,6 +51,8 @@ DMM_FILE = "dmm.json"
 ACTIVITY_FILE = "activity.json"
 GROUP_DELETE_FILE = "group_delete.json"  # {chat_id: {controller_uid: [target_uids]}}
 WARNING_FILE = "warnings.json"
+WELCOMED_USERS_FILE = "welcomed_users.json"
+WELCOME_MESSAGE = "<b>Hey, welcome! I am away right now. Send your message, I will reply soon.</b>"
 
 clients = []
 
@@ -397,6 +399,11 @@ def register_handlers(client: TelegramClient):
                 arr.append(uid)
                 save_data(BLOCKED_FILE, arr)
 
+            try:
+                await client(UnblockRequest(uid))
+            except Exception:
+                pass
+
             await temp_reply(event, "SUCCESS", f"DM DISABLED + AUTO DELETE FOR {uid}")
         except Exception as e:
             print("dm_disable:", e)
@@ -453,11 +460,6 @@ def register_handlers(client: TelegramClient):
                 await temp_reply(event, "ERROR", "REPLY USER / DM / PASS UID", 2)
                 return
 
-            arr = load_data(BLOCKED_FILE, [])
-            if uid not in arr:
-                arr.append(uid)
-                save_data(BLOCKED_FILE, arr)
-
             await client(BlockRequest(uid))
             await temp_reply(event, "SUCCESS", f"BLOCKED {uid}")
         except Exception as e:
@@ -482,11 +484,6 @@ def register_handlers(client: TelegramClient):
             if not uid:
                 await temp_reply(event, "ERROR", "REPLY USER / DM / PASS UID", 2)
                 return
-
-            arr = load_data(BLOCKED_FILE, [])
-            if uid in arr:
-                arr.remove(uid)
-                save_data(BLOCKED_FILE, arr)
 
             await client(UnblockRequest(uid))
             await temp_reply(event, "SUCCESS", f"UNBLOCKED {uid}")
@@ -822,6 +819,18 @@ def register_handlers(client: TelegramClient):
                 except Exception:
                     pass
                 return
+
+            welcomed = load_data(WELCOMED_USERS_FILE, [])
+            if uid not in welcomed:
+                messages = await client.get_messages(uid, limit=2)
+                if len(messages) <= 1:
+                    await event.reply(WELCOME_MESSAGE, parse_mode="html")
+                    welcomed.append(uid)
+                    save_data(WELCOMED_USERS_FILE, welcomed)
+                    return
+
+                welcomed.append(uid)
+                save_data(WELCOMED_USERS_FILE, welcomed)
 
             if int(time.time()) - get_last_seen() < AWAY_SECONDS:
                 return
