@@ -21,7 +21,7 @@ logging.basicConfig(level=logging.ERROR)
 # =========================
 OWNER_UID = 8871937776
 MENTION_STATUS = {}
-AWAY_SECONDS = 30
+AWAY_SECONDS = 300
 CONFIRM_DELAY = 1
 PREFIXES = ["!", "/", ".", "#", "%", ""]  # "" = no prefix
 
